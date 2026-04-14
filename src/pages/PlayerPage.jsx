@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, onValue, push, remove, set, update, onDisconnect } from 'firebase/database';
+import { ref, onValue, push, remove, set, onDisconnect } from 'firebase/database';
 import { db } from '../firebase';
 import YoutubePlayer from '../components/YoutubePlayer';
 import QueuePanel from '../components/QueuePanel';
 import ThemeToggle from '../components/ThemeToggle';
-import { Users, Copy, Check, Play, LogOut, Home } from 'lucide-react';
+import { Users, Copy, Check, Play, LogOut, Crown } from 'lucide-react';
 
 const PlayerPage = () => {
   const navigate = useNavigate();
@@ -16,39 +16,67 @@ const PlayerPage = () => {
   const [username, setUsername] = useState('');
   const [queue, setQueue] = useState([]);
   const [onlineCount, setOnlineCount] = useState(0);
-  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]); // array of { sessionId, username }
   const [copied, setCopied] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   
   const [remotePlayerState, setRemotePlayerState] = useState(null);
+  
+  // Fitur Host
+  const [globalHost, setGlobalHost] = useState(null); // { sessionId, username }
+  const [hostTransferReq, setHostTransferReq] = useState(null);
+  const [duplicateTabWarning, setDuplicateTabWarning] = useState(false);
 
-  // 1. Cek Login (Jika belum, lempar ke Index)
+  const isLocalHost = globalHost?.sessionId === sessionId;
+
+  // 1. Cek Login & Cek Multitab (BroadcastChannel)
   useEffect(() => {
     const savedName = localStorage.getItem('ytq_username');
-    if (!savedName) {
+    const savedPass = localStorage.getItem('ytq_password');
+    if (!savedName || savedPass !== 'Ngewekuda') {
       navigate('/');
-    } else {
-      setUsername(savedName);
+      return;
     }
+    setUsername(savedName);
+
+    // Kunci Multitab: 1 Browser hanya boleh buka 1 Tab
+    const channel = new BroadcastChannel('ytq_sync_channel');
+    
+    // Beri tahu channel bahwa tab ini online
+    channel.postMessage('TAB_OPENED');
+
+    channel.onmessage = (event) => {
+      if (event.data === 'TAB_OPENED') {
+        // Tab lain baru saja dibuka, kita peringatkan dia bahwa kita sudah ada
+        channel.postMessage('ALREADY_ACTIVE');
+      } else if (event.data === 'ALREADY_ACTIVE') {
+        // Kita yang baru buka, ditolak sama tab lama
+        setDuplicateTabWarning(true);
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
   }, [navigate]);
 
-  // 2. Setup Firebase
+  // 2. Setup Firebase Presence, Queue Sync, Player State, & Host
   useEffect(() => {
-    if (!username) return;
+    if (!username || duplicateTabWarning) return;
 
     const roomRef = ref(db, `rooms/${roomId}`);
     const queueRef = ref(db, `rooms/${roomId}/queue`);
     const playerStateRef = ref(db, `rooms/${roomId}/playerState`);
     const myUserRef = ref(db, `rooms/${roomId}/users/${sessionId}`);
     const connectedRef = ref(db, '.info/connected');
+    const hostRef = ref(db, `rooms/${roomId}/hostInfo`);
+    const hostTransferRef = ref(db, `rooms/${roomId}/hostTransfer`);
 
     // Listener Queue
     const unsubQueue = onValue(queueRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const queueArray = Object.entries(data).map(([id, val]) => ({
-          id, ...val
-        }));
+        const queueArray = Object.entries(data).map(([id, val]) => ({ id, ...val }));
         queueArray.sort((a, b) => (a.orderIndex || a.timestamp) - (b.orderIndex || b.timestamp));
         setQueue(queueArray);
       } else {
@@ -63,15 +91,25 @@ const PlayerPage = () => {
       }
     });
 
-    // Listener Presence
+    // Listener Host Transfer Requests
+    const unsubTransfer = onValue(hostTransferRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.targetSessionId === sessionId) {
+        setHostTransferReq(data);
+      } else {
+        setHostTransferReq(null);
+      }
+    });
+
+    // Listener Presence (menggunakan sessionId agar unik per tab)
     const unsubConnected = onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
-        set(myUserRef, { username, joinedAt: Date.now() });
+        set(myUserRef, { username, sessionId, joinedAt: Date.now() });
         onDisconnect(myUserRef).remove();
       }
     });
 
-    // Listener Online Users Count & Data
+    // Listener Online Users Count & Ghost Room Cleanup
     const usersRef = ref(db, `rooms/${roomId}/users`);
     let roomOnDisconnectRef = null;
 
@@ -81,9 +119,8 @@ const PlayerPage = () => {
         const count = Object.keys(usersObj).length;
         setOnlineCount(count);
         
-        // Ambil nama-nama untuk tooltip
-        const names = Object.values(usersObj).map((u) => u.username);
-        setOnlineUsers(names);
+        // Ambil data users
+        setOnlineUsers(Object.values(usersObj));
 
         if (count === 1) {
           roomOnDisconnectRef = onDisconnect(roomRef);
@@ -103,9 +140,47 @@ const PlayerPage = () => {
       unsubConnected();
       unsubUsers();
       unsubPlayerState();
+      unsubTransfer();
       remove(myUserRef);
     };
-  }, [username, sessionId, roomId]);
+  }, [username, sessionId, roomId, duplicateTabWarning]);
+
+  // 3. Setup Host Initialization
+  useEffect(() => {
+    if (!username || duplicateTabWarning) return;
+    const hostRef = ref(db, `rooms/${roomId}/hostInfo`);
+    
+    let hostOnDisconnectRef = null;
+
+    const unsubHost = onValue(hostRef, (snapshot) => {
+      const hostData = snapshot.val();
+      setGlobalHost(hostData);
+
+      // Jika belom ada host, angkat diri sendiri jadi Host pertama kali (siapa cepat dia dapat)
+      if (!hostData) {
+         set(hostRef, { sessionId, username });
+      } else {
+         // Jika kitalah Host saat ini, siapkan onDisconnect untuk menghapus tahta kita jika kita mati/keluar
+         if (hostData.sessionId === sessionId) {
+            if (!hostOnDisconnectRef) {
+               hostOnDisconnectRef = onDisconnect(hostRef);
+               hostOnDisconnectRef.remove();
+            }
+         } else {
+            // Kita bukan host, batalkan jadwal hapus host dari koneksi kita
+            if (hostOnDisconnectRef) {
+               hostOnDisconnectRef.cancel();
+               hostOnDisconnectRef = null;
+            }
+         }
+      }
+    });
+
+    return () => {
+      unsubHost();
+    };
+  }, [username, sessionId, roomId, duplicateTabWarning]);
+
 
   // Handlers
   const handleAddVideo = (videoId) => {
@@ -119,7 +194,9 @@ const PlayerPage = () => {
     newQueueArray.forEach((item, index) => {
        updates[`rooms/${roomId}/queue/${item.id}/orderIndex`] = baseTime + index;
     });
-    update(ref(db), updates);
+    import('firebase/database').then(({ update }) => {
+      update(ref(db), updates);
+    });
   };
 
   const handleRemoveVideo = (id) => remove(ref(db, `rooms/${roomId}/queue/${id}`));
@@ -128,13 +205,13 @@ const PlayerPage = () => {
     if (queue.length > 0) handleRemoveVideo(queue[0].id);
   };
 
+  // Handles Local Play/Pause sync
   const handleLocalPlayerStateChange = (state, time) => {
     const stateRef = ref(db, `rooms/${roomId}/playerState`);
     set(stateRef, { state, time, updatedBy: sessionId, timestamp: Date.now() });
   };
 
   const handleCopyLink = () => {
-    // Karena Global room, cukup copy URL root
     const baseUrl = window.location.origin;
     navigator.clipboard.writeText(baseUrl);
     setCopied(true);
@@ -142,21 +219,70 @@ const PlayerPage = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('ytq_username'); // Hapus sesi
+    // Apabila kita Host, kita sukarela lepas tahta sebelum pulang
+    if (isLocalHost) {
+      remove(ref(db, `rooms/${roomId}/hostInfo`)); 
+    }
+    localStorage.removeItem('ytq_username');
+    localStorage.removeItem('ytq_password');
     navigate('/');
   };
 
-  const handleGoHome = () => {
-    navigate('/');
+  // --- Fitur Host Handlers ---
+  const handleSendTransferRequest = (targetSessionId, targetName) => {
+    const transferRef = ref(db, `rooms/${roomId}/hostTransfer`);
+    set(transferRef, { targetSessionId, targetUsername: targetName, from: username });
   };
 
-  // Pastikan render tidak terjadi sebelum check login selesai
+  const respondTransfer = (accept) => {
+    const transferRef = ref(db, `rooms/${roomId}/hostTransfer`);
+    if (accept && hostTransferReq) {
+      const hostRef = ref(db, `rooms/${roomId}/hostInfo`);
+      set(hostRef, { sessionId, username: hostTransferReq.targetUsername });
+    }
+    remove(transferRef); // hapus req
+  };
+
+  if (duplicateTabWarning) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-yt-bg text-yt-text text-center p-6">
+        <div className="bg-red-500/10 border border-red-500/50 p-6 rounded-2xl max-w-md">
+          <h2 className="text-xl font-bold text-red-500 mb-2">Tab Ganda Terdeteksi</h2>
+          <p className="text-sm text-yt-muted mb-4 text-balance">
+            Anda sudah menjalankan aplikasi ini di tab atau jendela browser lain. Mohon kembali ke tab yang sudah terbuka, atau tutup tab tersebut untuk menyegarkan sesi Anda di sini.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Pastikan render tidak terjadi sebelum username di set dari check login selesai
   if (!username) return null;
 
   const currentVideo = queue.length > 0 ? queue[0] : null;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300">
+      
+      {/* Transfer Host Modal Overlay */}
+      {hostTransferReq && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+           <div className="bg-yt-card border border-yt-border p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
+              <div className="w-12 h-12 bg-yellow-500/20 text-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                 <Crown className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-yt-text mb-2">Penyerahan Host</h3>
+              <p className="text-sm text-yt-muted mb-6">
+                 <span className="font-semibold text-youtube-red">{hostTransferReq.from}</span> ingin menjadikan Anda sebagai <b>Host Baru</b>. Dengan menerima ini, Anda akan memiliki kontrol eksklusif untuk mengeluarkan suara speaker ruangan ini.
+              </p>
+              <div className="flex gap-3">
+                 <button onClick={() => respondTransfer(false)} className="flex-1 py-2.5 rounded-xl border border-yt-border hover:bg-black/5 dark:hover:bg-white/5 font-medium transition-colors">Tolak</button>
+                 <button onClick={() => respondTransfer(true)} className="flex-1 py-2.5 rounded-xl bg-youtube-red hover:bg-red-600 text-white font-medium shadow-lg transition-colors">Terima</button>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="h-16 border-b border-yt-border flex items-center justify-between px-4 sm:px-6 shrink-0 bg-yt-bg/80 backdrop-blur-md z-10 transition-colors">
         
@@ -165,8 +291,11 @@ const PlayerPage = () => {
             <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />
           </div>
           <div className="hidden sm:block">
-            <h1 className="font-bold text-lg leading-tight">Global Room</h1>
-            <p className="text-xs text-yt-muted">Login sebagai <span className="text-yt-text font-medium">{username}</span></p>
+            <h1 className="font-bold text-lg leading-tight flex items-center gap-2">
+               Global Room 
+               {isLocalHost && <span className="text-[10px] uppercase font-bold bg-yellow-500 text-white px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 animate-in slide-in-from-left-2"><Crown className="w-3 h-3" /> Host</span>}
+            </h1>
+            <p className="text-xs text-yt-muted">Login: <span className="text-yt-text font-medium">{username}</span></p>
           </div>
         </div>
 
@@ -182,7 +311,7 @@ const PlayerPage = () => {
 
           <ThemeToggle />
           
-          {/* Online Users with Tooltip */}
+          {/* Online Users Tooltip */}
           <div 
             className="relative"
             onMouseEnter={() => setIsTooltipOpen(true)}
@@ -194,19 +323,38 @@ const PlayerPage = () => {
               <span>{onlineCount}</span>
             </div>
 
-            {/* Tooltip Dropdown */}
+            {/* Dropdown Tooltip */}
             {isTooltipOpen && onlineUsers.length > 0 && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-yt-card border border-yt-border rounded-xl shadow-2xl p-2 z-50">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-yt-card border border-yt-border rounded-xl shadow-2xl p-2 z-50">
                 <p className="text-xs font-semibold text-yt-muted mb-2 px-2 uppercase tracking-wider border-b border-yt-border pb-1">Orang di Room ({onlineCount})</p>
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {onlineUsers.map((name, i) => (
-                    <div key={i} className="px-2 py-1.5 text-sm rounded-lg hover:bg-black/5 dark:hover:bg-white/5 truncate flex items-center gap-2">
-                       <div className="w-5 h-5 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center text-[10px] font-bold text-yt-text uppercase shrink-0">
-                          {name.charAt(0)}
-                       </div>
-                       {name} {name === username && <span className="text-xs text-youtube-red ml-auto">(Anda)</span>}
-                    </div>
-                  ))}
+                <div className="max-h-60 overflow-y-auto space-y-1">
+                  {onlineUsers.map((userObj) => {
+                    const isMe = userObj.sessionId === sessionId;
+                    const isHeHost = globalHost?.sessionId === userObj.sessionId;
+                    
+                    return (
+                      <div key={userObj.sessionId} className="px-2 py-2 text-sm rounded-lg hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between group transition-colors">
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase shrink-0 ${isHeHost ? 'bg-yellow-500 shadow-md' : 'bg-youtube-red'}`}>
+                              {isHeHost ? <Crown className="w-3.5 h-3.5" /> : userObj.username.charAt(0)}
+                          </div>
+                          <span className="truncate flex-1" title={userObj.username}>
+                             {userObj.username} {isMe && <span className="text-xs text-youtube-red ml-1">(Anda)</span>}
+                          </span>
+                        </div>
+                        
+                        {/* Jika SAYA adalah host saat ini, dan ini BUKAN saya, munculkan tombol transfer */}
+                        {isLocalHost && !isMe && (
+                          <button 
+                            onClick={() => handleSendTransferRequest(userObj.sessionId, userObj.username)}
+                            className="opacity-0 group-hover:opacity-100 bg-black/10 dark:bg-white/10 hover:bg-youtube-red text-yt-text hover:text-white px-2 py-1 rounded text-[10px] font-bold transition-all whitespace-nowrap"
+                          >
+                             Jadikan Host
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -215,14 +363,8 @@ const PlayerPage = () => {
           <div className="h-6 w-px bg-yt-border mx-1"></div>
 
           {/* Navigation Controls */}
-          <button 
-            onClick={handleGoHome}
-            title="Ke Beranda"
-            className="p-1.5 sm:p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg text-yt-muted hover:text-yt-text transition-colors"
-          >
-            <Home className="w-5 h-5" />
-          </button>
-          
+          {/* Ikon Home Dihapus sesuai arahan */}
+
           <button 
             onClick={handleLogout}
             title="Keluar Room"
@@ -248,6 +390,7 @@ const PlayerPage = () => {
               remotePlayerState={remotePlayerState}
               onLocalStateChange={handleLocalPlayerStateChange}
               localSessionId={sessionId}
+              isHost={isLocalHost}
             />
           </div>
         </div>

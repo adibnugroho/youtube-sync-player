@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import YouTube from 'react-youtube';
 
-const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalStateChange, localSessionId }) => {
+const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalStateChange, localSessionId, isHost }) => {
   const playerRef = useRef(null);
 
   const opts = {
@@ -28,7 +28,24 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
   const handleReady = (event) => {
     playerRef.current = event.target;
+    // Mute or Unmute based on Host status on initial ready
+    if (isHost) {
+      playerRef.current.unMute();
+    } else {
+      playerRef.current.mute();
+    }
   };
+
+  // Mute/Unmute listener dynamically if host status changes
+  useEffect(() => {
+    if (playerRef.current) {
+      if (isHost) {
+        playerRef.current.unMute();
+      } else {
+        playerRef.current.mute();
+      }
+    }
+  }, [isHost]);
 
   useEffect(() => {
     if (remotePlayerState && playerRef.current && remotePlayerState.updatedBy !== localSessionId) {
@@ -55,7 +72,7 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
   if (!currentVideo) {
     return (
-      <div className="w-full h-full aspect-video bg-yt-card border border-yt-border rounded-2xl flex flex-col items-center justify-center text-yt-muted transition-colors duration-300">
+      <div className="w-full h-full my-auto aspect-video bg-yt-card border border-yt-border rounded-2xl flex flex-col items-center justify-center text-yt-muted transition-colors duration-300 shadow-2xl">
         <YoutubePlaceholderIcon />
         <p className="mt-4 text-xl font-medium tracking-wide">Queue Kosong</p>
         <p className="text-sm opacity-60 mt-1">Tambahkan video dari panel sebelah kanan</p>

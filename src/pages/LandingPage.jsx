@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, Lock } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import { ref, get } from 'firebase/database';
+import { db } from '../firebase';
 
 const LandingPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorObj, setErrorObj] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,11 +19,12 @@ const LandingPage = () => {
     }
   }, []);
 
-  const handleJoin = (e) => {
+  const handleJoin = async (e) => {
     e.preventDefault();
     setErrorObj('');
 
-    if (!username.trim()) return;
+    const trimmedName = username.trim();
+    if (!trimmedName) return;
     
     // Validasi Kata Sandi
     if (password !== 'Ngewekuda') {
@@ -28,21 +32,43 @@ const LandingPage = () => {
       return;
     }
     
-    // Simpan ke localstorage
-    localStorage.setItem('ytq_username', username.trim());
-    
-    // Masuk ke Global Room
-    navigate('/player');
+    setIsLoading(true);
+
+    try {
+      // Validasi apakah username sudah dipakai di ruangan
+      const usersRef = ref(db, 'rooms/global-room/users');
+      const snapshot = await get(usersRef);
+      if (snapshot.exists()) {
+        const usersData = snapshot.val();
+        // Cek apakah ada yang pakai nama ini (case-insensitive)
+        const isNameTaken = Object.values(usersData).some(
+          (u) => u.username.toLowerCase() === trimmedName.toLowerCase()
+        );
+
+        if (isNameTaken) {
+          setErrorObj(`Nama "${trimmedName}" sudah ada di dalam room. Silakan pilih nama lain.`);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Aman, simpan memori dan masuk
+      localStorage.setItem('ytq_username', trimmedName);
+      localStorage.setItem('ytq_password', password);
+      navigate('/player');
+    } catch (err) {
+      console.error(err);
+      setErrorObj('Terjadi kesalahan sambungan. Coba lagi.');
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300 min-h-screen">
-      {/* Theme Toggle Top Right */}
       <div className="absolute top-6 right-6 z-20">
         <ThemeToggle />
       </div>
 
-      {/* Background Ornament */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-youtube-red/10 rounded-full blur-[120px] pointer-events-none"></div>
       
       <div className="z-10 w-full max-w-md bg-yt-card/80 backdrop-blur-xl p-8 rounded-2xl border border-yt-border shadow-2xl transition-colors duration-300">
@@ -75,7 +101,8 @@ const LandingPage = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Sebutkan nama Anda..."
-              className="w-full bg-yt-bg border border-yt-border rounded-xl px-4 py-3 text-yt-text placeholder-yt-muted focus:outline-none focus:ring-2 focus:ring-youtube-red focus:border-transparent transition-all"
+              className="w-full bg-yt-bg border border-yt-border rounded-xl px-4 py-3 text-yt-text placeholder-yt-muted focus:outline-none focus:ring-2 focus:ring-youtube-red focus:border-transparent transition-all disabled:opacity-50"
+              disabled={isLoading}
             />
           </div>
 
@@ -90,18 +117,20 @@ const LandingPage = () => {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                setErrorObj(''); // Clear error on change
+                setErrorObj('');
               }}
               placeholder="Masukkan sandi rahasia..."
-              className="w-full bg-yt-bg border border-yt-border rounded-xl px-4 py-3 text-yt-text placeholder-yt-muted focus:outline-none focus:ring-2 focus:ring-youtube-red focus:border-transparent transition-all"
+              className="w-full bg-yt-bg border border-yt-border rounded-xl px-4 py-3 text-yt-text placeholder-yt-muted focus:outline-none focus:ring-2 focus:ring-youtube-red focus:border-transparent transition-all disabled:opacity-50"
+              disabled={isLoading}
             />
           </div>
           
           <button
             type="submit"
-            className="w-full bg-youtube-red hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-xl shadow-[0_4px_14px_rgba(255,0,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,0,0,0.4)] transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2 mt-2"
+            disabled={isLoading}
+            className="w-full bg-youtube-red hover:bg-red-600 disabled:bg-youtube-red/70 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl shadow-[0_4px_14px_rgba(255,0,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,0,0,0.4)] transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2 mt-2"
           >
-            Masuk ke Global Room <Play className="w-4 h-4" />
+            {isLoading ? 'Memeriksa...' : 'Masuk ke Global Room'} {!isLoading && <Play className="w-4 h-4" />}
           </button>
         </form>
       </div>
