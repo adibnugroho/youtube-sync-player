@@ -116,7 +116,7 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
   }
 
   return (
-    <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl relative group">
+    <div className="w-full max-h-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl relative group">
       {/* Overlay info & Speaker Toggle */}
       <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
