@@ -21,9 +21,11 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
     if (state === 0) {
       if (onVideoEnd) onVideoEnd();
     } else if (state === 1 || state === 2) {
-      // Mencegah letupan broadcast otomatis di awal komponen dimuat yang mereset video orang lain
       if (Date.now() - mountTimeRef.current < 3000) return;
       
+      // Mencegah letupan saat browser melakukan auto-pause paksa jika tab (biasanya user-muted) diminimize.
+      if (state === 2 && document.hidden) return;
+
       if (onLocalStateChange) {
         onLocalStateChange(state, event.target.getCurrentTime());
       }
@@ -52,26 +54,49 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
   }, [isHost]);
 
   useEffect(() => {
-    if (remotePlayerState && playerRef.current && remotePlayerState.updatedBy !== localSessionId) {
-      const player = playerRef.current;
-      
-      const currentTime = player.getCurrentTime() || 0;
-      const targetTime = remotePlayerState.time || 0;
-      const timeDiff = Math.abs(currentTime - targetTime);
-      
-      // Mencegah infinite loop: Hanya sinkronisasi jika berbeda cukup jauh atau berpindah play/pause status
-      if (remotePlayerState.state === 1) {
-        if (timeDiff > 2) {
-            player.seekTo(targetTime, true);
-        }
-        player.playVideo();
-      } else if (remotePlayerState.state === 2) {
-        if (timeDiff > 0.5) {
-            player.seekTo(targetTime, true);
-        }
-        player.pauseVideo();
-      }
-    }
+    if (!remotePlayerState || !playerRef.current) return;
+    
+    const syncPlayer = () => {
+       const player = playerRef.current;
+       if (remotePlayerState.updatedBy === localSessionId) return;
+
+       const currentTime = player.getCurrentTime() || 0;
+       let expectedTime = remotePlayerState.time || 0;
+
+       if (remotePlayerState.state === 1) {
+         // Untuk hasil akurat, tambahkan jeda/selisih waktu dari detik saat tombol play ditekan sampai saat ini.
+         const elapsedSeconds = (Date.now() - remotePlayerState.timestamp) / 1000;
+         expectedTime += elapsedSeconds;
+
+         const timeDiff = Math.abs(currentTime - expectedTime);
+         // Sinkronisasi jika terlambat atau lebih cepat minimum 2 detik
+         if (timeDiff > 2) {
+             player.seekTo(expectedTime, true);
+         }
+         player.playVideo();
+       } else if (remotePlayerState.state === 2) {
+         const timeDiff = Math.abs(currentTime - expectedTime);
+         if (timeDiff > 0.5) {
+             player.seekTo(expectedTime, true);
+         }
+         player.pauseVideo();
+       }
+    };
+
+    // Jalankan sinkronisasi
+    syncPlayer();
+
+    // Jalankan re-sinkronisasi otomatis ketika tab aktif kembali (dari mode background/hidden)
+    const handleVisibilityChange = () => {
+       if (!document.hidden) {
+           syncPlayer();
+       }
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+       document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [remotePlayerState, localSessionId]);
 
   if (!currentVideo) {

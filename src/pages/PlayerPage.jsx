@@ -25,6 +25,8 @@ const PlayerPage = () => {
   // Fitur Host
   const [globalHost, setGlobalHost] = useState(null); // { sessionId, username }
   const [hostTransferReq, setHostTransferReq] = useState(null);
+  const [hostRequestData, setHostRequestData] = useState(null); // Data user yg minta jadi host
+  const [hasRequestedHost, setHasRequestedHost] = useState(false); // Feedback UI tombol
   const [duplicateTabWarning, setDuplicateTabWarning] = useState(false);
 
   const isLocalHost = globalHost?.sessionId === sessionId;
@@ -101,6 +103,17 @@ const PlayerPage = () => {
       }
     });
 
+    // Listener Permintaan (Request) Host dari akun lain
+    const reqHostRef = ref(db, `rooms/${roomId}/hostRequest`);
+    const unsubReqHost = onValue(reqHostRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.targetSessionId === sessionId) {
+        setHostRequestData(data);
+      } else {
+        setHostRequestData(null);
+      }
+    });
+
     // Listener Presence (menggunakan sessionId agar unik per tab)
     const unsubConnected = onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
@@ -130,7 +143,8 @@ const PlayerPage = () => {
       unsubUsers();
       unsubPlayerState();
       unsubTransfer();
-      remove(myUserRef);
+      unsubReqHost();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [username, sessionId, roomId, duplicateTabWarning]);
 
@@ -251,6 +265,23 @@ const PlayerPage = () => {
     remove(transferRef); // hapus req
   };
 
+  const handleSendHostRequest = (targetSessionId) => {
+    if (isLocalHost) return;
+    const reqRef = ref(db, `rooms/${roomId}/hostRequest`);
+    set(reqRef, { targetSessionId, from: username, fromSessionId: sessionId });
+    setHasRequestedHost(true);
+    setTimeout(() => setHasRequestedHost(false), 3000);
+  };
+
+  const respondHostRequest = (accept) => {
+    const reqRef = ref(db, `rooms/${roomId}/hostRequest`);
+    if (accept && hostRequestData) {
+      const hostRef = ref(db, `rooms/${roomId}/hostInfo`);
+      set(hostRef, { sessionId: hostRequestData.fromSessionId, username: hostRequestData.from });
+    }
+    remove(reqRef);
+  };
+
   if (duplicateTabWarning) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-yt-bg text-yt-text text-center p-6">
@@ -272,6 +303,25 @@ const PlayerPage = () => {
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300">
       
+      {/* Minta Jadi Host Modal Overlay (khusus penerima yg sedang jadi Host) */}
+      {hostRequestData && isLocalHost && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+           <div className="bg-yt-card border border-yt-border p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
+              <div className="w-12 h-12 bg-blue-500/20 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                 <Users className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-yt-text mb-2">Permintaan Akses Audio</h3>
+              <p className="text-sm text-yt-muted mb-6">
+                 <span className="font-semibold text-youtube-red">{hostRequestData.from}</span> meminta kunci sistem (Role Host) dari Anda. Jika Anda memberikan izin, hanya suara di devicenya yang akan menyala.
+              </p>
+              <div className="flex gap-3">
+                 <button onClick={() => respondHostRequest(false)} className="flex-1 py-2.5 rounded-xl border border-yt-border hover:bg-black/5 dark:hover:bg-white/5 font-medium transition-colors">Tolak</button>
+                 <button onClick={() => respondHostRequest(true)} className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-lg transition-colors">Berikan Akses</button>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Transfer Host Modal Overlay */}
       {hostTransferReq && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -359,6 +409,17 @@ const PlayerPage = () => {
                             className="opacity-0 group-hover:opacity-100 bg-black/10 dark:bg-white/10 hover:bg-youtube-red text-yt-text hover:text-white px-2 py-1 rounded text-[10px] font-bold transition-all whitespace-nowrap"
                           >
                              Jadikan Host
+                          </button>
+                        )}
+
+                        {/* Jika SAYA BUKAN host, tapi DIA adalah host, munculkan Minta Host */}
+                        {!isLocalHost && isHeHost && !isMe && (
+                          <button 
+                            onClick={() => handleSendHostRequest(userObj.sessionId)}
+                            disabled={hasRequestedHost}
+                            className={`opacity-0 group-hover:opacity-100 text-yt-text px-2 py-1 rounded text-[10px] font-bold transition-all whitespace-nowrap ${hasRequestedHost ? 'bg-green-500/20 text-green-500' : 'bg-black/10 dark:bg-white/10 hover:bg-blue-500 hover:text-white'}`}
+                          >
+                             {hasRequestedHost ? 'Terkirim ✓' : 'Minta Host'}
                           </button>
                         )}
                       </div>
