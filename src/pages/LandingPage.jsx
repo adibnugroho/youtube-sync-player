@@ -28,7 +28,7 @@ const LandingPage = () => {
     if (!trimmedName) return;
     
     if (password !== 'Ngewekuda') {
-      setErrorObj('Kata sandi salah. Anda tidak diizinkan masuk.');
+      setErrorObj('Incorrect password. Access denied.');
       return;
     }
     
@@ -44,10 +44,16 @@ const LandingPage = () => {
         );
 
         if (isNameTaken) {
-          setErrorObj(`Nama "${trimmedName}" sudah ada di dalam room. Silakan pilih nama lain.`);
+          setErrorObj(`Username "${trimmedName}" is already in the room. Please choose another name.`);
           setIsLoading(false);
           return;
         }
+      } else {
+        // PENGHANCURAN TOTAL: Jika tidak ada satupun user di ruangan (snapshot false),
+        // reset sepenuhnya ruangan agar tidak ada queue dari hari kemarin.
+        await import('firebase/database').then(({ remove }) => {
+            return remove(ref(db, 'rooms/global-room'));
+        });
       }
 
       localStorage.setItem('ytq_username', trimmedName);
@@ -55,7 +61,7 @@ const LandingPage = () => {
       navigate('/player');
     } catch (err) {
       console.error(err);
-      setErrorObj('Terjadi kesalahan sambungan. Coba lagi.');
+      setErrorObj('Connection error. Please try again.');
       setIsLoading(false);
     }
   };
@@ -77,7 +83,7 @@ const LandingPage = () => {
         </div>
         
         <p className="text-center text-yt-muted mb-6 transition-colors duration-300">
-          Nonton YouTube bareng teman secara real-time tanpa ribet.
+          Watch YouTube together with friends in real-time, hassle-free.
         </p>
 
         <form onSubmit={handleJoin} className="space-y-5">
@@ -89,7 +95,7 @@ const LandingPage = () => {
 
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-yt-muted mb-2 transition-colors duration-300">
-              Nama Pengguna
+              Username
             </label>
             <input
               id="username"
@@ -97,7 +103,7 @@ const LandingPage = () => {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Sebutkan nama Anda..."
+              placeholder="Enter your name..."
               className="w-full bg-yt-bg border border-yt-border rounded-xl px-4 py-3 text-yt-text placeholder-yt-muted focus:outline-none focus:ring-2 focus:ring-youtube-red focus:border-transparent transition-all disabled:opacity-50"
               disabled={isLoading}
             />
@@ -105,7 +111,7 @@ const LandingPage = () => {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-yt-muted mb-2 transition-colors duration-300 flex items-center gap-1.5">
-              <Lock className="w-4 h-4" /> Kata Sandi Room
+              <Lock className="w-4 h-4" /> Room Password
             </label>
             <div className="relative">
               <input
@@ -117,7 +123,7 @@ const LandingPage = () => {
                   setPassword(e.target.value);
                   setErrorObj('');
                 }}
-                placeholder="Masukkan sandi rahasia..."
+                placeholder="Enter secret password..."
                 className="w-full bg-yt-bg border border-yt-border rounded-xl px-4 py-3 pr-12 text-yt-text placeholder-yt-muted focus:outline-none focus:ring-2 focus:ring-youtube-red focus:border-transparent transition-all disabled:opacity-50"
                 disabled={isLoading}
               />
@@ -125,7 +131,7 @@ const LandingPage = () => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-yt-muted hover:text-yt-text transition-colors p-1"
-                title={showPassword ? "Sembunyikan Sandi" : "Tampilkan Sandi"}
+                title={showPassword ? "Hide Password" : "Show Password"}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -137,7 +143,7 @@ const LandingPage = () => {
             disabled={isLoading}
             className="w-full bg-youtube-red hover:bg-red-600 disabled:bg-youtube-red/70 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl shadow-[0_4px_14px_rgba(255,0,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,0,0,0.4)] transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2 mt-2"
           >
-            {isLoading ? 'Memeriksa...' : 'Masuk ke Global Room'} {!isLoading && <Play className="w-4 h-4" />}
+            {isLoading ? 'Checking...' : 'Join Global Room'} {!isLoading && <Play className="w-4 h-4" />}
           </button>
         </form>
       </div>
