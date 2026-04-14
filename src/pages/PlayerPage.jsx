@@ -376,8 +376,11 @@ const PlayerPage = () => {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden">
-        <div className="flex-1 flex items-center justify-center p-0 sm:p-4">
+      <div className="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden relative">
+        <div className="flex-1 flex items-center justify-center p-0 sm:p-4 relative">
+          {/* Decorative Player Background Glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl aspect-video bg-youtube-red/10 rounded-[100%] blur-[120px] pointer-events-none opacity-50 dark:opacity-30"></div>
+          
           <YoutubePlayer 
             currentVideo={currentVideo} 
             onVideoEnd={handleVideoEnd}
@@ -388,7 +391,7 @@ const PlayerPage = () => {
             serverTimeOffset={serverTimeOffset}
           />
         </div>
-        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[400px] lg:h-full">
+        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[380px] lg:h-full z-10">
           <QueuePanel 
             queue={queue}
             currentVideoId={currentVideo?.videoId}
