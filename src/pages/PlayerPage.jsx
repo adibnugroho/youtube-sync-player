@@ -328,7 +328,7 @@ const PlayerPage = () => {
       )}
 
       {/* Header */}
-      <header className="h-16 border-b border-yt-border flex items-center justify-between px-4 sm:px-6 shrink-0 bg-yt-bg/80 backdrop-blur-md z-10">
+      <header className="h-16 border-b border-yt-border flex items-center justify-between px-4 sm:px-6 shrink-0 bg-yt-bg/80 backdrop-blur-md z-30">
         <div className="flex items-center gap-2 sm:gap-4">
           <div className="w-8 h-8 rounded-full bg-youtube-red flex items-center justify-center shadow-lg"><Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" /></div>
           <div>
