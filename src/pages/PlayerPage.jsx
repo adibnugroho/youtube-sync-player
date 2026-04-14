@@ -16,6 +16,7 @@ const PlayerPage = () => {
   const [username, setUsername] = useState('');
   const [queue, setQueue] = useState([]);
   const [onlineCount, setOnlineCount] = useState(0);
+  const onlineCountRef = useRef(0); // Supaya bisa dibaca oleh event listener beforeunload
   const [onlineUsers, setOnlineUsers] = useState([]); // array of { sessionId, username }
   const [copied, setCopied] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
@@ -130,9 +131,11 @@ const PlayerPage = () => {
         const usersObj = snapshot.val();
         const count = Object.keys(usersObj).length;
         setOnlineCount(count);
+        onlineCountRef.current = count;
         setOnlineUsers(Object.values(usersObj));
       } else {
         setOnlineCount(0);
+        onlineCountRef.current = 0;
         setOnlineUsers([]);
       }
     });
@@ -181,17 +184,23 @@ const PlayerPage = () => {
 
     // 4. Sinkronisasi Tab Close (Hard Close)
     const handleBeforeUnload = () => {
-      const myUserRefSync = ref(db, `rooms/${roomId}/users/${sessionId}`);
-      remove(myUserRefSync);
-      // Apabila SAYA adalah Host, hapus status Host murni
-      const hostRefSync = ref(db, `rooms/${roomId}/hostInfo`);
-      import('firebase/database').then(({ get }) => {
-         get(hostRefSync).then(snap => {
-            if (snap.val()?.sessionId === sessionId) {
-               remove(hostRefSync);
-            }
+      if (onlineCountRef.current <= 1) {
+         // Saya adalah orang terakhir, reset semua antrean dan memory ruangan!
+         remove(ref(db, `rooms/${roomId}`));
+      } else {
+         // Orang lain masih ada, hapus saya saja (dan lepaskan tahta Host jika saya pemegangnya)
+         const myUserRefSync = ref(db, `rooms/${roomId}/users/${sessionId}`);
+         remove(myUserRefSync);
+         
+         const hostRefSync = ref(db, `rooms/${roomId}/hostInfo`);
+         import('firebase/database').then(({ get }) => {
+            get(hostRefSync).then(snap => {
+               if (snap.val()?.sessionId === sessionId) {
+                  remove(hostRefSync);
+               }
+            });
          });
-      });
+      }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
@@ -239,12 +248,18 @@ const PlayerPage = () => {
   };
 
   const handleLogout = () => {
-    const myUserRefSync = ref(db, `rooms/${roomId}/users/${sessionId}`);
-    remove(myUserRefSync);
-
-    if (isLocalHost) {
-      remove(ref(db, `rooms/${roomId}/hostInfo`)); 
+    if (onlineCountRef.current <= 1) {
+       // Reset ruangan total jika kita orang terakhir
+       remove(ref(db, `rooms/${roomId}`));
+    } else {
+       // Lepaskan memori saya sendiri
+       const myUserRefSync = ref(db, `rooms/${roomId}/users/${sessionId}`);
+       remove(myUserRefSync);
+       if (isLocalHost) {
+         remove(ref(db, `rooms/${roomId}/hostInfo`)); 
+       }
     }
+    
     localStorage.removeItem('ytq_username');
     localStorage.removeItem('ytq_password');
     navigate('/');
