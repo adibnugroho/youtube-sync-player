@@ -376,7 +376,7 @@ const PlayerPage = () => {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden min-h-0 relative">
+      <div className="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden min-h-0 relative h-[calc(100vh-4rem)]">
         <div className="flex-1 flex items-center justify-center p-0 sm:p-4 min-h-0 relative">
           {/* Decorative Player Background Glow */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl aspect-video bg-youtube-red/10 rounded-[100%] blur-[120px] pointer-events-none opacity-50 dark:opacity-30"></div>
