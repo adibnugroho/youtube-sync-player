@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Link, Trash2, ListVideo, SkipForward, GripVertical } from 'lucide-react';
+import { Plus, Link, Trash2, ListVideo, SkipForward, GripVertical, ArrowUp, ArrowDown, StepForward } from 'lucide-react';
 
 const extractVideoID = (url) => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -10,9 +10,10 @@ const extractVideoID = (url) => {
 const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVideo, onReorderQueue }) => {
   const [urlInput, setUrlInput] = useState('');
   const [error, setError] = useState('');
+  const [isFetchingInfo, setIsFetchingInfo] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!urlInput.trim()) return;
 
@@ -22,7 +23,21 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
       return;
     }
 
-    onAddVideo(videoId);
+    setIsFetchingInfo(true);
+    let title = '';
+    try {
+      // Bypass API Key using public oEmbed endpoint
+      const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+      if (response.ok) {
+        const data = await response.json();
+        title = data.title;
+      }
+    } catch (err) {
+      console.warn("Gagal menarik judul YouTube (oEmbed diblokir atau limit)", err);
+    }
+    setIsFetchingInfo(false);
+
+    onAddVideo(videoId, title);
     setUrlInput('');
     setError('');
   };
@@ -36,12 +51,11 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
   };
 
   const handleDragOver = (e, index) => {
-    e.preventDefault(); // Diperlukan agar event onDrop bisa bekerja
+    e.preventDefault();
   };
 
   const handleDrop = (e, targetIdx) => {
     e.preventDefault();
-    // Tidak boleh geser video yg sedang jalan (index 0) atau target ke diri sendiri
     if (draggedIdx === null || draggedIdx === targetIdx || targetIdx === 0) {
       setDraggedIdx(null);
       return;
@@ -51,10 +65,34 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
     const [draggedItem] = newQueue.splice(draggedIdx, 1);
     newQueue.splice(targetIdx, 0, draggedItem);
 
-    if (onReorderQueue) {
-      onReorderQueue(newQueue);
-    }
+    if (onReorderQueue) onReorderQueue(newQueue);
     setDraggedIdx(null);
+  };
+
+  const handleMoveUp = (index) => {
+    if (index <= 1) return; // Cannot bump the playing video (0)
+    const newQueue = [...queue];
+    const temp = newQueue[index - 1];
+    newQueue[index - 1] = newQueue[index];
+    newQueue[index] = temp;
+    if (onReorderQueue) onReorderQueue(newQueue);
+  };
+
+  const handleMoveDown = (index) => {
+    if (index === 0 || index === queue.length - 1) return;
+    const newQueue = [...queue];
+    const temp = newQueue[index + 1];
+    newQueue[index + 1] = newQueue[index];
+    newQueue[index] = temp;
+    if (onReorderQueue) onReorderQueue(newQueue);
+  };
+
+  const handlePlayNext = (index) => {
+    if (index <= 1) return; // Already playing next
+    const newQueue = [...queue];
+    const item = newQueue.splice(index, 1)[0];
+    newQueue.splice(1, 0, item); // Sisipkan tepat sesudah index 0
+    if (onReorderQueue) onReorderQueue(newQueue);
   };
 
   return (
@@ -100,11 +138,11 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
                 className={`flex gap-2 p-2 rounded-xl transition-all group ${isPlaying ? 'bg-youtube-red/10 border-youtube-red/20 border' : 'hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'} ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
               >
                 {/* Drag Handle Indicator */}
-                <div className={`flex flex-col items-center justify-center text-yt-muted ${!isDraggable ? 'opacity-0 w-0 overflow-hidden' : 'opacity-40 group-hover:opacity-100 hover:text-yt-text'}`}>
+                <div className={`flex flex-col items-center justify-center text-yt-muted ${!isDraggable ? 'hidden' : 'opacity-40 group-hover:opacity-100 hover:text-yt-text'}`}>
                   <GripVertical className="w-4 h-4" />
                 </div>
 
-                <div className="w-28 aspect-video bg-black rounded-lg overflow-hidden shrink-0 relative">
+                <div className="w-24 sm:w-28 aspect-video bg-black rounded-lg overflow-hidden shrink-0 relative">
                   <img 
                     src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} 
                     alt="Thumbnail" 
@@ -112,16 +150,22 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
                   />
                   {isPlaying && (
                     <div className="absolute inset-0 bg-youtube-red/20 flex items-center justify-center">
-                      <span className="text-[10px] uppercase tracking-wider font-bold bg-youtube-red text-white px-2 py-0.5 rounded-sm shadow-lg pointer-events-none">Diputar</span>
+                      <span className="text-[9px] sm:text-[10px] uppercase tracking-wider font-bold bg-youtube-red text-white px-2 py-0.5 rounded-sm shadow-lg pointer-events-none">Diputar</span>
                     </div>
+                  )}
+                  {/* Tag Index Nomor */}
+                  {!isPlaying && (
+                     <div className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[10px] text-white font-mono pointer-events-none">
+                        #{index}
+                     </div>
                   )}
                 </div>
                 
-                <div className="flex flex-col justify-center flex-1 min-w-0">
-                  <p className="text-sm font-medium line-clamp-2 text-yt-text">
-                    Video ID: {item.videoId}
+                <div className="flex flex-col justify-center flex-1 min-w-0 pr-1">
+                  <p className="text-sm font-medium line-clamp-2 text-yt-text" title={item.title || item.videoId}>
+                    {item.title || `Video ID: ${item.videoId}`}
                   </p>
-                  <p className="text-xs text-yt-muted mt-1.5 flex items-center gap-1.5">
+                  <p className="text-xs text-yt-muted mt-1 flex items-center gap-1.5">
                     <span className="w-4 h-4 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center pt-px text-[9px] uppercase font-bold text-yt-text">
                       {item.sender.charAt(0)}
                     </span>
@@ -129,10 +173,36 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
                   </p>
                 </div>
 
-                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Quick Action Columns */}
+                {isDraggable && (
+                   <div className="flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1 px-1">
+                     <button 
+                       onClick={(e) => { e.stopPropagation(); handleMoveUp(index); }}
+                       disabled={index === 1}
+                       className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded disabled:opacity-30 disabled:hover:bg-transparent text-yt-muted transition-colors" title="Geser ke Atas"
+                     ><ArrowUp className="w-3.5 h-3.5" /></button>
+                     <button 
+                       onClick={(e) => { e.stopPropagation(); handleMoveDown(index); }}
+                       disabled={index === queue.length - 1}
+                       className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded disabled:opacity-30 disabled:hover:bg-transparent text-yt-muted transition-colors" title="Geser ke Bawah"
+                     ><ArrowDown className="w-3.5 h-3.5" /></button>
+                   </div>
+                )}
+
+                <div className="flex flex-col justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity gap-2 border-l border-yt-border/50 pl-2">
+                  {isDraggable && index > 1 && (
+                     <button 
+                       onClick={(e) => { e.stopPropagation(); handlePlayNext(index); }}
+                       className="p-1.5 bg-youtube-red/10 hover:bg-youtube-red text-youtube-red hover:text-white rounded-lg transition-colors flex items-center gap-1"
+                       title="Mainkan Selanjutnya (Pindah ke Antrean #1)"
+                     >
+                       <StepForward className="w-3.5 h-3.5" />
+                       <span className="text-[10px] uppercase font-bold hidden sm:inline">Next</span>
+                     </button>
+                  )}
                   <button 
                     onClick={(e) => { e.stopPropagation(); onRemoveVideo(item.id); }}
-                    className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-yt-muted hover:text-red-500 transition-colors"
+                    className="p-1.5 hover:bg-red-500/10 rounded-lg text-yt-muted hover:text-red-500 transition-colors"
                     title="Hapus dari antrean"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -158,15 +228,16 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
                 value={urlInput}
                 onChange={(e) => { setUrlInput(e.target.value); setError(''); }}
                 placeholder="Tempel link YouTube..."
-                className="w-full bg-yt-bg border border-yt-border rounded-xl py-2.5 pl-9 pr-4 text-sm text-yt-text placeholder-yt-muted focus:outline-none focus:ring-1 focus:ring-youtube-red focus:border-youtube-red transition-all"
+                className="w-full bg-yt-bg border border-yt-border rounded-xl py-2.5 pl-9 pr-4 text-sm text-yt-text placeholder-yt-muted focus:outline-none focus:ring-1 focus:ring-youtube-red focus:border-youtube-red transition-all disabled:opacity-50"
+                disabled={isFetchingInfo}
               />
             </div>
             <button
               type="submit"
-              disabled={!urlInput.trim()}
+              disabled={!urlInput.trim() || isFetchingInfo}
               className="bg-youtube-red hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-youtube-red text-white p-2.5 rounded-xl shadow-lg transition-colors shrink-0"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className={`w-5 h-5 ${isFetchingInfo ? 'animate-spin opacity-50' : ''}`} />
             </button>
           </div>
         </form>

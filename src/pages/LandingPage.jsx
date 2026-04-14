@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Lock } from 'lucide-react';
+import { Play, Lock, Eye, EyeOff } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { ref, get } from 'firebase/database';
 import { db } from '../firebase';
@@ -8,6 +8,7 @@ import { db } from '../firebase';
 const LandingPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorObj, setErrorObj] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -26,7 +27,6 @@ const LandingPage = () => {
     const trimmedName = username.trim();
     if (!trimmedName) return;
     
-    // Validasi Kata Sandi
     if (password !== 'Ngewekuda') {
       setErrorObj('Kata sandi salah. Anda tidak diizinkan masuk.');
       return;
@@ -35,12 +35,10 @@ const LandingPage = () => {
     setIsLoading(true);
 
     try {
-      // Validasi apakah username sudah dipakai di ruangan
       const usersRef = ref(db, 'rooms/global-room/users');
       const snapshot = await get(usersRef);
       if (snapshot.exists()) {
         const usersData = snapshot.val();
-        // Cek apakah ada yang pakai nama ini (case-insensitive)
         const isNameTaken = Object.values(usersData).some(
           (u) => u.username.toLowerCase() === trimmedName.toLowerCase()
         );
@@ -52,7 +50,6 @@ const LandingPage = () => {
         }
       }
 
-      // Aman, simpan memori dan masuk
       localStorage.setItem('ytq_username', trimmedName);
       localStorage.setItem('ytq_password', password);
       navigate('/player');
@@ -110,19 +107,29 @@ const LandingPage = () => {
             <label htmlFor="password" className="block text-sm font-medium text-yt-muted mb-2 transition-colors duration-300 flex items-center gap-1.5">
               <Lock className="w-4 h-4" /> Kata Sandi Room
             </label>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setErrorObj('');
-              }}
-              placeholder="Masukkan sandi rahasia..."
-              className="w-full bg-yt-bg border border-yt-border rounded-xl px-4 py-3 text-yt-text placeholder-yt-muted focus:outline-none focus:ring-2 focus:ring-youtube-red focus:border-transparent transition-all disabled:opacity-50"
-              disabled={isLoading}
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setErrorObj('');
+                }}
+                placeholder="Masukkan sandi rahasia..."
+                className="w-full bg-yt-bg border border-yt-border rounded-xl px-4 py-3 pr-12 text-yt-text placeholder-yt-muted focus:outline-none focus:ring-2 focus:ring-youtube-red focus:border-transparent transition-all disabled:opacity-50"
+                disabled={isLoading}
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-yt-muted hover:text-yt-text transition-colors p-1"
+                title={showPassword ? "Sembunyikan Sandi" : "Tampilkan Sandi"}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
           
           <button

@@ -109,26 +109,15 @@ const PlayerPage = () => {
       }
     });
 
-    // Listener Online Users Count & Ghost Room Cleanup
+    // Listener Online Users Count
     const usersRef = ref(db, `rooms/${roomId}/users`);
-    let roomOnDisconnectRef = null;
 
     const unsubUsers = onValue(usersRef, (snapshot) => {
       if (snapshot.exists()) {
         const usersObj = snapshot.val();
         const count = Object.keys(usersObj).length;
         setOnlineCount(count);
-        
-        // Ambil data users
         setOnlineUsers(Object.values(usersObj));
-
-        if (count === 1) {
-          roomOnDisconnectRef = onDisconnect(roomRef);
-          roomOnDisconnectRef.remove();
-        } else if (count > 1 && roomOnDisconnectRef) {
-          roomOnDisconnectRef.cancel();
-          roomOnDisconnectRef = null;
-        }
       } else {
         setOnlineCount(0);
         setOnlineUsers([]);
@@ -176,16 +165,33 @@ const PlayerPage = () => {
       }
     });
 
+    // 4. Sinkronisasi Tab Close (Hard Close)
+    const handleBeforeUnload = () => {
+      const myUserRefSync = ref(db, `rooms/${roomId}/users/${sessionId}`);
+      remove(myUserRefSync);
+      // Apabila SAYA adalah Host, hapus status Host murni
+      const hostRefSync = ref(db, `rooms/${roomId}/hostInfo`);
+      import('firebase/database').then(({ get }) => {
+         get(hostRefSync).then(snap => {
+            if (snap.val()?.sessionId === sessionId) {
+               remove(hostRefSync);
+            }
+         });
+      });
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
       unsubHost();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [username, sessionId, roomId, duplicateTabWarning]);
 
 
   // Handlers
-  const handleAddVideo = (videoId) => {
+  const handleAddVideo = (videoId, title = '') => {
     const queueRef = ref(db, `rooms/${roomId}/queue`);
-    push(queueRef, { videoId, sender: username, timestamp: Date.now(), orderIndex: Date.now() });
+    push(queueRef, { videoId, title, sender: username, timestamp: Date.now(), orderIndex: Date.now() });
   };
 
   const handleReorderQueue = (newQueueArray) => {
@@ -219,7 +225,9 @@ const PlayerPage = () => {
   };
 
   const handleLogout = () => {
-    // Apabila kita Host, kita sukarela lepas tahta sebelum pulang
+    const myUserRefSync = ref(db, `rooms/${roomId}/users/${sessionId}`);
+    remove(myUserRefSync);
+
     if (isLocalHost) {
       remove(ref(db, `rooms/${roomId}/hostInfo`)); 
     }
@@ -311,17 +319,21 @@ const PlayerPage = () => {
 
           <ThemeToggle />
           
-          {/* Online Users Tooltip */}
-          <div 
-            className="relative"
-            onMouseEnter={() => setIsTooltipOpen(true)}
-            onMouseLeave={() => setIsTooltipOpen(false)}
-          >
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-youtube-red/10 border border-youtube-red/20 rounded-lg text-sm font-medium cursor-default">
+          {/* Online Users Clickable Dropdown */}
+          <div className="relative">
+            <div 
+              onClick={() => setIsTooltipOpen(!isTooltipOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-youtube-red/10 border border-youtube-red/20 rounded-lg text-sm font-medium cursor-pointer hover:bg-youtube-red/20 transition-colors"
+            >
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
               <Users className="w-4 h-4 text-youtube-red" />
               <span>{onlineCount}</span>
             </div>
+
+            {/* Invisible overlay to close dropdown on outer click */}
+            {isTooltipOpen && (
+              <div className="fixed inset-0 z-40" onClick={() => setIsTooltipOpen(false)}></div>
+            )}
 
             {/* Dropdown Tooltip */}
             {isTooltipOpen && onlineUsers.length > 0 && (
