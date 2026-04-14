@@ -101,6 +101,7 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
 
   return (
     <div className="flex flex-col h-full bg-yt-card rounded-2xl border border-yt-border overflow-hidden transition-colors duration-300">
+      {/* Header */}
       <div className="p-4 border-b border-yt-border bg-black/5 dark:bg-white/5 flex items-center gap-3">
         <div className="p-2 bg-youtube-red/10 rounded-lg">
           <ListVideo className="w-5 h-5 text-youtube-red" />
@@ -119,12 +120,29 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
         )}
       </div>
 
+      {/* Input Area - Moved to Top */}
+      <div className="p-4 bg-black/5 dark:bg-black/30 border-b border-yt-border shadow-sm z-10 transition-colors">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+          {error && <p className="text-xs text-red-500 font-medium px-1">{error}</p>}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-yt-muted"><Link className="w-4 h-4" /></div>
+              <input type="text" value={urlInput} onChange={(e) => { setUrlInput(e.target.value); setError(''); }} placeholder="Paste YouTube link..." className="w-full bg-yt-bg border border-yt-border rounded-xl py-2.5 pl-9 pr-4 text-sm text-yt-text placeholder-yt-muted focus:outline-none focus:ring-1 focus:ring-youtube-red focus:border-youtube-red transition-all disabled:opacity-50" disabled={isFetchingInfo} />
+            </div>
+            <button type="submit" disabled={!urlInput.trim() || isFetchingInfo} className="bg-youtube-red hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-youtube-red text-white p-2.5 rounded-xl shadow-lg transition-colors shrink-0">
+              <Plus className={`w-5 h-5 ${isFetchingInfo ? 'animate-spin opacity-50' : ''}`} />
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Queue List - Scrollable */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2 relative">
         {queue.length === 0 ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-yt-muted opacity-50 p-6 text-center transition-colors">
             <ListVideo className="w-12 h-12 mb-3" strokeWidth={1} />
             <p>No videos in queue yet.</p>
-            <p className="text-sm mt-1">Add a link below.</p>
+            <p className="text-sm mt-1">Add a link above.</p>
           </div>
         ) : (
           queue.map((item, index) => {
@@ -193,21 +211,6 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
             );
           })
         )}
-      </div>
-
-      <div className="p-4 bg-black/5 dark:bg-black/30 border-t border-yt-border transition-colors">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          {error && <p className="text-xs text-red-500 font-medium px-1">{error}</p>}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-yt-muted"><Link className="w-4 h-4" /></div>
-              <input type="text" value={urlInput} onChange={(e) => { setUrlInput(e.target.value); setError(''); }} placeholder="Paste YouTube link..." className="w-full bg-yt-bg border border-yt-border rounded-xl py-2.5 pl-9 pr-4 text-sm text-yt-text placeholder-yt-muted focus:outline-none focus:ring-1 focus:ring-youtube-red focus:border-youtube-red transition-all disabled:opacity-50" disabled={isFetchingInfo} />
-            </div>
-            <button type="submit" disabled={!urlInput.trim() || isFetchingInfo} className="bg-youtube-red hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-youtube-red text-white p-2.5 rounded-xl shadow-lg transition-colors shrink-0">
-              <Plus className={`w-5 h-5 ${isFetchingInfo ? 'animate-spin opacity-50' : ''}`} />
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );

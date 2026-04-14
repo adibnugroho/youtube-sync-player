@@ -29,6 +29,7 @@ const PlayerPage = () => {
   const [hostRequestData, setHostRequestData] = useState(null); // Data user yg minta jadi host
   const [hasRequestedHost, setHasRequestedHost] = useState(false); // Feedback UI tombol
   const [duplicateTabWarning, setDuplicateTabWarning] = useState(false);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
   const isLocalHost = globalHost?.sessionId === sessionId;
 
@@ -132,6 +133,12 @@ const PlayerPage = () => {
       }
     });
 
+    // Listener server offset
+    const offsetRef = ref(db, ".info/serverTimeOffset");
+    const unsubOffset = onValue(offsetRef, (snap) => {
+        setServerTimeOffset(snap.val() || 0);
+    });
+
     return () => {
       unsubQueue();
       unsubConnected();
@@ -139,6 +146,7 @@ const PlayerPage = () => {
       unsubPlayerState();
       unsubTransfer();
       unsubReqHost();
+      unsubOffset();
     };
   }, [username, sessionId, roomId, duplicateTabWarning]);
 
@@ -211,7 +219,12 @@ const PlayerPage = () => {
 
   const handleLocalPlayerStateChange = (state, time) => {
     const stateRef = ref(db, `rooms/${roomId}/playerState`);
-    set(stateRef, { state, time, updatedBy: sessionId, timestamp: Date.now() });
+    set(stateRef, { 
+      state, 
+      time, 
+      updatedBy: sessionId, 
+      timestamp: Date.now() + serverTimeOffset 
+    });
   };
 
   const handleCopyLink = () => {
@@ -372,6 +385,7 @@ const PlayerPage = () => {
             onLocalStateChange={handleLocalPlayerStateChange}
             localSessionId={sessionId}
             isHost={isLocalHost}
+            serverTimeOffset={serverTimeOffset}
           />
         </div>
         <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[400px] lg:h-full">

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import YouTube from 'react-youtube';
 
-const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalStateChange, localSessionId, isHost }) => {
+const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalStateChange, localSessionId, isHost, serverTimeOffset }) => {
   const playerRef = useRef(null);
   const mountTimeRef = useRef(Date.now());
 
@@ -32,11 +32,44 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
     }
   };
 
+  const forceSync = () => {
+    if (!remotePlayerState || !playerRef.current) return;
+    
+    const player = playerRef.current;
+    if (remotePlayerState.updatedBy === localSessionId) return;
+
+    const currentTime = player.getCurrentTime() || 0;
+    let expectedTime = remotePlayerState.time || 0;
+
+    if (remotePlayerState.state === 1) {
+      // Add elapsed time since play was clicked for accuracy
+      const currentServerTime = Date.now() + (serverTimeOffset || 0);
+      const elapsedSeconds = (currentServerTime - remotePlayerState.timestamp) / 1000;
+      expectedTime += elapsedSeconds;
+
+      const timeDiff = Math.abs(currentTime - expectedTime);
+      // Sync if behind or ahead by at least 2 seconds
+      if (timeDiff > 2) {
+          player.seekTo(expectedTime, true);
+      }
+      player.playVideo();
+    } else if (remotePlayerState.state === 2) {
+      const timeDiff = Math.abs(currentTime - expectedTime);
+      if (timeDiff > 0.5) {
+          player.seekTo(expectedTime, true);
+      }
+      player.pauseVideo();
+    }
+  };
+
   const handleReady = (event) => {
     playerRef.current = event.target;
     // All auto-unmuted to allow background play
     // Users can manually mute via the player icon
     playerRef.current.unMute();
+    
+    // Trigger sync immediately on ready
+    forceSync();
   };
 
   const [isLocalMuted, setIsLocalMuted] = useState(false);
@@ -57,42 +90,12 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
   };
 
   useEffect(() => {
-    if (!remotePlayerState || !playerRef.current) return;
-    
-    const syncPlayer = () => {
-       const player = playerRef.current;
-       if (remotePlayerState.updatedBy === localSessionId) return;
-
-       const currentTime = player.getCurrentTime() || 0;
-       let expectedTime = remotePlayerState.time || 0;
-
-       if (remotePlayerState.state === 1) {
-         // Add elapsed time since play was clicked for accuracy
-         const elapsedSeconds = (Date.now() - remotePlayerState.timestamp) / 1000;
-         expectedTime += elapsedSeconds;
-
-         const timeDiff = Math.abs(currentTime - expectedTime);
-         // Sync if behind or ahead by at least 2 seconds
-         if (timeDiff > 2) {
-             player.seekTo(expectedTime, true);
-         }
-         player.playVideo();
-       } else if (remotePlayerState.state === 2) {
-         const timeDiff = Math.abs(currentTime - expectedTime);
-         if (timeDiff > 0.5) {
-             player.seekTo(expectedTime, true);
-         }
-         player.pauseVideo();
-       }
-    };
-
-    // Run synchronization
-    syncPlayer();
+    forceSync();
 
     // Run auto re-sync when tab becomes active again
     const handleVisibilityChange = () => {
        if (!document.hidden) {
-           syncPlayer();
+           forceSync();
        }
     };
     
@@ -100,7 +103,7 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
     return () => {
        document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [remotePlayerState, localSessionId]);
+  }, [remotePlayerState, localSessionId, serverTimeOffset]);
 
   if (!currentVideo) {
     return (
