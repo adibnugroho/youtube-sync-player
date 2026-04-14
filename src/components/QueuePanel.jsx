@@ -100,7 +100,7 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
   };
 
   return (
-    <div className="flex flex-col h-full bg-yt-card rounded-2xl border border-yt-border overflow-hidden transition-colors duration-300">
+    <div className="flex flex-col h-full min-h-0 bg-yt-card rounded-2xl border border-yt-border overflow-hidden transition-colors duration-300">
       {/* Header */}
       <div className="p-4 border-b border-yt-border bg-black/5 dark:bg-white/5 flex items-center gap-3">
         <div className="p-2 bg-youtube-red/10 rounded-lg">

@@ -298,7 +298,7 @@ const PlayerPage = () => {
   const currentVideo = queue.length > 0 ? queue[0] : null;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300">
+    <div className="flex flex-col h-screen h-[100dvh] overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300">
       
       {/* Modals */}
       {hostRequestData && isLocalHost && (
@@ -376,7 +376,7 @@ const PlayerPage = () => {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden min-h-0 relative h-[calc(100vh-4rem)]">
+      <div className="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden min-h-0 relative h-[calc(100vh-4rem)] h-[calc(100dvh-4rem)]">
         <div className="flex-1 h-full flex items-center justify-center p-0 sm:p-4 min-h-0 relative">
           {/* Decorative Player Background Glow */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl aspect-video bg-youtube-red/10 rounded-[100%] blur-[120px] pointer-events-none opacity-50 dark:opacity-30"></div>
