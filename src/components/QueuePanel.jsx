@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Link, Trash2, ListVideo, SkipForward } from 'lucide-react';
+import { Plus, Link, Trash2, ListVideo, SkipForward, GripVertical } from 'lucide-react';
 
 const extractVideoID = (url) => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -7,9 +7,10 @@ const extractVideoID = (url) => {
   return (match && match[2].length === 11) ? match[2] : null;
 };
 
-const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVideo }) => {
+const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVideo, onReorderQueue }) => {
   const [urlInput, setUrlInput] = useState('');
   const [error, setError] = useState('');
+  const [draggedIdx, setDraggedIdx] = useState(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -17,13 +18,43 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
 
     const videoId = extractVideoID(urlInput);
     if (!videoId) {
-      setError('Link YouTube tidak valid. Gunakan format youtube.com/watch?v=... atau youtu.be/...');
+      setError('Link YouTube tdk valid. Gunakan format youtube.com/watch?v=... atau youtu.be/...');
       return;
     }
 
     onAddVideo(videoId);
     setUrlInput('');
     setError('');
+  };
+
+  const handleDragStart = (e, index) => {
+    if (index === 0) {
+      e.preventDefault();
+      return;
+    }
+    setDraggedIdx(index);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault(); // Diperlukan agar event onDrop bisa bekerja
+  };
+
+  const handleDrop = (e, targetIdx) => {
+    e.preventDefault();
+    // Tidak boleh geser video yg sedang jalan (index 0) atau target ke diri sendiri
+    if (draggedIdx === null || draggedIdx === targetIdx || targetIdx === 0) {
+      setDraggedIdx(null);
+      return;
+    }
+
+    const newQueue = [...queue];
+    const [draggedItem] = newQueue.splice(draggedIdx, 1);
+    newQueue.splice(targetIdx, 0, draggedItem);
+
+    if (onReorderQueue) {
+      onReorderQueue(newQueue);
+    }
+    setDraggedIdx(null);
   };
 
   return (
@@ -58,20 +89,30 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
         ) : (
           queue.map((item, index) => {
             const isPlaying = item.videoId === currentVideoId && index === 0;
+            const isDraggable = !isPlaying;
             return (
               <div 
                 key={item.id} 
-                className={`flex gap-3 p-3 rounded-xl transition-all group ${isPlaying ? 'bg-youtube-red/10 border-youtube-red/20 border' : 'hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}`}
+                draggable={isDraggable}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={(e) => handleDrop(e, index)}
+                className={`flex gap-2 p-2 rounded-xl transition-all group ${isPlaying ? 'bg-youtube-red/10 border-youtube-red/20 border' : 'hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'} ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
               >
-                <div className="w-32 aspect-video bg-black rounded-lg overflow-hidden shrink-0 relative">
+                {/* Drag Handle Indicator */}
+                <div className={`flex flex-col items-center justify-center text-yt-muted ${!isDraggable ? 'opacity-0 w-0 overflow-hidden' : 'opacity-40 group-hover:opacity-100 hover:text-yt-text'}`}>
+                  <GripVertical className="w-4 h-4" />
+                </div>
+
+                <div className="w-28 aspect-video bg-black rounded-lg overflow-hidden shrink-0 relative">
                   <img 
                     src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} 
                     alt="Thumbnail" 
-                    className="w-full h-full object-cover opacity-80"
+                    className="w-full h-full object-cover opacity-80 pointer-events-none"
                   />
                   {isPlaying && (
                     <div className="absolute inset-0 bg-youtube-red/20 flex items-center justify-center">
-                      <span className="text-[10px] uppercase tracking-wider font-bold bg-youtube-red text-white px-2 py-0.5 rounded-sm shadow-lg">Sedang Diputar</span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold bg-youtube-red text-white px-2 py-0.5 rounded-sm shadow-lg pointer-events-none">Diputar</span>
                     </div>
                   )}
                 </div>
@@ -90,7 +131,7 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
 
                 <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
-                    onClick={() => onRemoveVideo(item.id)}
+                    onClick={(e) => { e.stopPropagation(); onRemoveVideo(item.id); }}
                     className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-yt-muted hover:text-red-500 transition-colors"
                     title="Hapus dari antrean"
                   >
