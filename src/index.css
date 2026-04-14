@@ -1,16 +1,34 @@
 @import "tailwindcss";
 
 @theme {
+  --color-yt-bg: var(--yt-bg);
+  --color-yt-card: var(--yt-card);
+  --color-yt-text: var(--yt-text);
+  --color-yt-muted: var(--yt-muted);
+  --color-yt-border: var(--yt-border);
   --color-youtube-red: #ff0000;
-  --color-youtube-dark: #0f0f0f;
-  --color-youtube-card: #272727;
-  --color-youtube-hover: #3f3f3f;
-  --color-youtube-text: #f1f1f1;
-  --color-youtube-muted: #aaaaaa;
+}
+
+@layer base {
+  :root {
+    --yt-bg: #f9f9f9;
+    --yt-card: #ffffff;
+    --yt-text: #0f0f0f;
+    --yt-muted: #606060;
+    --yt-border: rgba(0, 0, 0, 0.1);
+  }
+
+  .dark {
+    --yt-bg: #0f0f0f;
+    --yt-card: #272727;
+    --yt-text: #f1f1f1;
+    --yt-muted: #aaaaaa;
+    --yt-border: rgba(255, 255, 255, 0.1);
+  }
 }
 
 body {
-  @apply bg-youtube-dark text-youtube-text font-sans antialiased;
+  @apply bg-yt-bg text-yt-text font-sans antialiased transition-colors duration-300;
 }
 
 /* Custom Scrollbar */

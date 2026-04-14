@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Link, Trash2, GripVertical, ListVideo } from 'lucide-react';
+import { Plus, Link, Trash2, ListVideo, SkipForward } from 'lucide-react';
 
 const extractVideoID = (url) => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -7,7 +7,7 @@ const extractVideoID = (url) => {
   return (match && match[2].length === 11) ? match[2] : null;
 };
 
-const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo }) => {
+const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVideo }) => {
   const [urlInput, setUrlInput] = useState('');
   const [error, setError] = useState('');
 
@@ -27,22 +27,30 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-youtube-card rounded-2xl border border-white/5 overflow-hidden">
+    <div className="flex flex-col h-full bg-yt-card rounded-2xl border border-yt-border overflow-hidden transition-colors duration-300">
       {/* Header */}
-      <div className="p-4 border-b border-white/5 bg-black/20 flex items-center gap-3">
+      <div className="p-4 border-b border-yt-border bg-black/5 dark:bg-white/5 flex items-center gap-3">
         <div className="p-2 bg-youtube-red/10 rounded-lg">
           <ListVideo className="w-5 h-5 text-youtube-red" />
         </div>
-        <h2 className="text-lg font-semibold tracking-wide">Antrean Video</h2>
-        <div className="ml-auto bg-white/10 text-xs px-2 py-1 rounded-full font-medium">
-          {queue.length} video
-        </div>
+        <h2 className="text-lg font-semibold tracking-wide text-yt-text flex-1">Antrean Video</h2>
+        
+        {queue.length > 0 && (
+          <button 
+            onClick={onSkipVideo}
+            title="Lewati Video (Skip)"
+            className="bg-black/10 dark:bg-white/10 hover:bg-youtube-red hover:text-white dark:hover:bg-youtube-red px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+          >
+            <SkipForward className="w-4 h-4" />
+            <span className="hidden sm:inline">Skip</span>
+          </button>
+        )}
       </div>
 
       {/* Queue List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2 relative">
         {queue.length === 0 ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-youtube-muted opacity-50 p-6 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-yt-muted opacity-50 p-6 text-center transition-colors">
             <ListVideo className="w-12 h-12 mb-3" strokeWidth={1} />
             <p>Belum ada video di antrean.</p>
             <p className="text-sm mt-1">Tambahkan link di bawah.</p>
@@ -53,7 +61,7 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo }) => {
             return (
               <div 
                 key={item.id} 
-                className={`flex gap-3 p-3 rounded-xl transition-all group ${isPlaying ? 'bg-youtube-red/10 border-youtube-red/20 border' : 'hover:bg-white/5 border border-transparent'}`}
+                className={`flex gap-3 p-3 rounded-xl transition-all group ${isPlaying ? 'bg-youtube-red/10 border-youtube-red/20 border' : 'hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}`}
               >
                 <div className="w-32 aspect-video bg-black rounded-lg overflow-hidden shrink-0 relative">
                   <img 
@@ -69,11 +77,11 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo }) => {
                 </div>
                 
                 <div className="flex flex-col justify-center flex-1 min-w-0">
-                  <p className="text-sm font-medium line-clamp-2 text-white/90">
+                  <p className="text-sm font-medium line-clamp-2 text-yt-text">
                     Video ID: {item.videoId}
                   </p>
-                  <p className="text-xs text-youtube-muted mt-1.5 flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center pt-px text-[9px] uppercase font-bold text-white/70">
+                  <p className="text-xs text-yt-muted mt-1.5 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center pt-px text-[9px] uppercase font-bold text-yt-text">
                       {item.sender.charAt(0)}
                     </span>
                     {item.sender}
@@ -83,7 +91,8 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo }) => {
                 <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={() => onRemoveVideo(item.id)}
-                    className="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-red-400 transition-colors"
+                    className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-yt-muted hover:text-red-500 transition-colors"
+                    title="Hapus dari antrean"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -95,12 +104,12 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo }) => {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-black/30 border-t border-white/5">
+      <div className="p-4 bg-black/5 dark:bg-black/30 border-t border-yt-border transition-colors">
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          {error && <p className="text-xs text-red-400 font-medium px-1">{error}</p>}
+          {error && <p className="text-xs text-red-500 font-medium px-1">{error}</p>}
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/40">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-yt-muted">
                 <Link className="w-4 h-4" />
               </div>
               <input
@@ -108,7 +117,7 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo }) => {
                 value={urlInput}
                 onChange={(e) => { setUrlInput(e.target.value); setError(''); }}
                 placeholder="Tempel link YouTube..."
-                className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-youtube-red focus:border-youtube-red transition-all"
+                className="w-full bg-yt-bg border border-yt-border rounded-xl py-2.5 pl-9 pr-4 text-sm text-yt-text placeholder-yt-muted focus:outline-none focus:ring-1 focus:ring-youtube-red focus:border-youtube-red transition-all"
               />
             </div>
             <button
