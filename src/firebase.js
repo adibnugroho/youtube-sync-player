@@ -1,17 +1,16 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
-// Konfigurasi Firebase dari environment variables
-// Anda dapat memasukkan API Key secara langsung jika tidak menggunakan file .env
-// Atau buat file .env di root project dan isi variabel berikut.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "MASUKKAN_API_KEY_ANDA",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "MASUKKAN_AUTH_DOMAIN_ANDA",
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://MASUKKAN_DB_NAMA_ANDA.firebaseio.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "MASUKKAN_PROJECT_ID_ANDA",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "MASUKKAN_STORAGE_BUCKET_ANDA",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "MASUKKAN_SENDER_ID_ANDA",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "MASUKKAN_APP_ID_ANDA"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAxMFLUe8hwgt-dbeaj27V4jjqASHol7hs",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "sync-player-2023e.firebaseapp.com",
+  // GANTI LINK DI BAWAH INI dengan link dari menu Realtime Database Anda
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://sync-player-2023e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "sync-player-2023e",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "sync-player-2023e.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "342357728162",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:342357728162:web:159271a20737dda39fb8fb", // Sudah ditambah koma
+  measurementId: "G-CGD1EC6VG4"
 };
 
 // Inisialisasi Firebase
