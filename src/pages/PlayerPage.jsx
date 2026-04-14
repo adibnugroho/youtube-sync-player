@@ -319,26 +319,23 @@ const PlayerPage = () => {
 
           <ThemeToggle />
           
-          {/* Online Users Clickable Dropdown */}
-          <div className="relative">
-            <div 
-              onClick={() => setIsTooltipOpen(!isTooltipOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-youtube-red/10 border border-youtube-red/20 rounded-lg text-sm font-medium cursor-pointer hover:bg-youtube-red/20 transition-colors"
-            >
+          {/* Online Users Hover Dropdown */}
+          <div 
+            className="relative"
+            onMouseEnter={() => setIsTooltipOpen(true)}
+            onMouseLeave={() => setIsTooltipOpen(false)}
+          >
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-youtube-red/10 border border-youtube-red/20 rounded-lg text-sm font-medium cursor-default hover:bg-youtube-red/20 transition-colors">
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
               <Users className="w-4 h-4 text-youtube-red" />
               <span>{onlineCount}</span>
             </div>
 
-            {/* Invisible overlay to close dropdown on outer click */}
-            {isTooltipOpen && (
-              <div className="fixed inset-0 z-40" onClick={() => setIsTooltipOpen(false)}></div>
-            )}
-
-            {/* Dropdown Tooltip */}
+            {/* Dropdown Tooltip with Invisible Bridge */}
             {isTooltipOpen && onlineUsers.length > 0 && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-yt-card border border-yt-border rounded-xl shadow-2xl p-2 z-50">
-                <p className="text-xs font-semibold text-yt-muted mb-2 px-2 uppercase tracking-wider border-b border-yt-border pb-1">Orang di Room ({onlineCount})</p>
+              <div className="absolute right-0 top-full pt-2 z-50">
+                <div className="w-64 bg-yt-card border border-yt-border rounded-xl shadow-2xl p-2">
+                  <p className="text-xs font-semibold text-yt-muted mb-2 px-2 uppercase tracking-wider border-b border-yt-border pb-1">Orang di Room ({onlineCount})</p>
                 <div className="max-h-60 overflow-y-auto space-y-1">
                   {onlineUsers.map((userObj) => {
                     const isMe = userObj.sessionId === sessionId;
@@ -408,7 +405,7 @@ const PlayerPage = () => {
         </div>
 
         {/* Right: Queue Panel */}
-        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[400px] lg:h-auto">
+        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[400px] lg:h-full">
           <QueuePanel 
             queue={queue}
             currentVideoId={currentVideo?.videoId}

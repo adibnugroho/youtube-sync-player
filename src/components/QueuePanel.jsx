@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Link, Trash2, ListVideo, SkipForward, GripVertical, ArrowUp, ArrowDown, StepForward } from 'lucide-react';
+import { Plus, Link, Trash2, ListVideo, SkipForward, GripVertical, ArrowUp, ArrowDown, StepForward, Play } from 'lucide-react';
 
 const extractVideoID = (url) => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -95,6 +95,14 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
     if (onReorderQueue) onReorderQueue(newQueue);
   };
 
+  const handlePlayNow = (index) => {
+    if (index === 0) return;
+    const newQueue = [...queue];
+    const item = newQueue.splice(index, 1)[0]; // Cabut dari urutan awal
+    newQueue.splice(0, 1, item); // Ganti index 0 dengan item ini (yang lama terhapus)
+    if (onReorderQueue) onReorderQueue(newQueue);
+  };
+
   return (
     <div className="flex flex-col h-full bg-yt-card rounded-2xl border border-yt-border overflow-hidden transition-colors duration-300">
       {/* Header */}
@@ -175,7 +183,7 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
 
                 {/* Quick Action Columns */}
                 {isDraggable && (
-                   <div className="flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1 px-1">
+                   <div className="hidden group-hover:flex flex-col items-center justify-center gap-1 px-1 animate-in fade-in duration-200">
                      <button 
                        onClick={(e) => { e.stopPropagation(); handleMoveUp(index); }}
                        disabled={index === 1}
@@ -189,20 +197,32 @@ const QueuePanel = ({ queue, currentVideoId, onAddVideo, onRemoveVideo, onSkipVi
                    </div>
                 )}
 
-                <div className="flex flex-col justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity gap-2 border-l border-yt-border/50 pl-2">
-                  {isDraggable && index > 1 && (
-                     <button 
-                       onClick={(e) => { e.stopPropagation(); handlePlayNext(index); }}
-                       className="p-1.5 bg-youtube-red/10 hover:bg-youtube-red text-youtube-red hover:text-white rounded-lg transition-colors flex items-center gap-1"
-                       title="Mainkan Selanjutnya (Pindah ke Antrean #1)"
-                     >
-                       <StepForward className="w-3.5 h-3.5" />
-                       <span className="text-[10px] uppercase font-bold hidden sm:inline">Next</span>
-                     </button>
+                <div className="hidden group-hover:flex flex-col justify-center items-center gap-1 border-l border-yt-border/50 pl-2 animate-in fade-in duration-200">
+                  {isDraggable && (
+                     <>
+                       <button 
+                         onClick={(e) => { e.stopPropagation(); handlePlayNow(index); }}
+                         className="p-1 px-2 w-full bg-youtube-red hover:bg-red-600 text-white rounded transition-colors flex items-center justify-center gap-1 shadow-sm"
+                         title="Mainkan Sekarang (Menimpa video saat ini)"
+                       >
+                         <Play className="w-3 h-3" fill="currentColor" />
+                         <span className="text-[9px] uppercase font-bold">Play</span>
+                       </button>
+                       {index > 1 && (
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); handlePlayNext(index); }}
+                           className="p-1 px-2 w-full bg-youtube-red/10 hover:bg-youtube-red text-youtube-red hover:text-white rounded transition-colors flex items-center justify-center gap-1"
+                           title="Mainkan Selanjutnya (Pindah ke Antrean #1)"
+                         >
+                           <StepForward className="w-3 h-3" />
+                           <span className="text-[9px] uppercase font-bold hidden xl:inline">Next</span>
+                         </button>
+                       )}
+                     </>
                   )}
                   <button 
                     onClick={(e) => { e.stopPropagation(); onRemoveVideo(item.id); }}
-                    className="p-1.5 hover:bg-red-500/10 rounded-lg text-yt-muted hover:text-red-500 transition-colors"
+                    className="p-1.5 mt-1 hover:bg-red-500/10 rounded-lg text-yt-muted hover:text-red-500 transition-colors w-full flex justify-center"
                     title="Hapus dari antrean"
                   >
                     <Trash2 className="w-4 h-4" />

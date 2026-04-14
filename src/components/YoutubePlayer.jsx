@@ -3,6 +3,7 @@ import YouTube from 'react-youtube';
 
 const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalStateChange, localSessionId, isHost }) => {
   const playerRef = useRef(null);
+  const mountTimeRef = useRef(Date.now());
 
   const opts = {
     height: '100%',
@@ -20,6 +21,9 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
     if (state === 0) {
       if (onVideoEnd) onVideoEnd();
     } else if (state === 1 || state === 2) {
+      // Mencegah letupan broadcast otomatis di awal komponen dimuat yang mereset video orang lain
+      if (Date.now() - mountTimeRef.current < 3000) return;
+      
       if (onLocalStateChange) {
         onLocalStateChange(state, event.target.getCurrentTime());
       }
