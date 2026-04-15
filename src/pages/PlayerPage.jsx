@@ -354,7 +354,10 @@ const PlayerPage = () => {
                 <div className="w-64 bg-yt-card border border-yt-border rounded-xl shadow-2xl p-2 max-h-80 overflow-y-auto">
                   {onlineUsers.map((u) => (
                     <div key={u.sessionId} className="px-2 py-2 text-sm rounded-lg hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between group">
-                      <span className="truncate flex-1">{u.username} {u.sessionId === sessionId && "(You)"}</span>
+                      <span className="truncate flex-1 flex items-center gap-1.5">
+                         {u.username} {u.sessionId === sessionId && <span className="text-yt-muted text-xs">(You)</span>}
+                         {globalHost?.sessionId === u.sessionId && <Crown className="w-3.5 h-3.5 text-yellow-500" title="Room Host" />}
+                      </span>
                       {isLocalHost && u.sessionId !== sessionId && (
                         <button onClick={() => handleSendTransferRequest(u.sessionId, u.username)} className="opacity-0 group-hover:opacity-100 bg-youtube-red text-white px-2 py-1 rounded text-[10px] font-bold">Make Host</button>
                       )}
