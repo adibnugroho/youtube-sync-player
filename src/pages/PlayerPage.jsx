@@ -214,7 +214,7 @@ const PlayerPage = () => {
   const handleRemoveVideo = (id) => remove(ref(db, `rooms/${roomId}/queue/${id}`));
 
   const handleVideoEnd = () => {
-    if (queue.length > 0) handleRemoveVideo(queue[0].id);
+    if (isLocalHost && queue.length > 0) handleRemoveVideo(queue[0].id);
   };
 
   const handleLocalPlayerStateChange = (state, time) => {

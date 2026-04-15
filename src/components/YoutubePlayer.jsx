@@ -26,7 +26,9 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
       // Prevent sudden pause when browser forces auto-pause for background/muted tabs
       if (state === 2 && document.hidden) return;
 
-      if (onLocalStateChange) {
+      // HANYA HOST yang boleh men-trigger perubahan state ke server
+      // Jika non-host mengubah player (misal karena ter-sync), jangan dibroadcast balik
+      if (onLocalStateChange && isHost) {
         onLocalStateChange(state, event.target.getCurrentTime());
       }
     }
