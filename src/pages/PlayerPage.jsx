@@ -473,7 +473,7 @@ const PlayerPage = () => {
               onClick={() => { setSidebarTab('chat'); setUnreadChat(false); }}
               className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-lg transition-all relative ${sidebarTab === 'chat' ? 'bg-yt-card shadow-sm text-yt-text' : 'text-yt-muted hover:text-yt-text'}`}
             >
-              <MessageSquareCore className="w-4 h-4" /> Live Chat
+              <MessageSquare className="w-4 h-4" /> Live Chat
               {unreadChat && sidebarTab !== 'chat' && (
                 <span className="absolute top-2 right-4 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
               )}
