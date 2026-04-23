@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Play, Lock, Eye, EyeOff, Plus, LogIn } from 'lucide-react';
+import { Play, Lock, Eye, EyeOff, Plus, LogIn, Info } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import HelpModal from '../components/HelpModal';
 import { ref, get, set } from 'firebase/database';
 import { db } from '../firebase';
 
@@ -17,6 +18,7 @@ const LandingPage = () => {
   const [roomName, setRoomName] = useState(''); // Only used for create
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   
   const [errorObj, setErrorObj] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -136,9 +138,19 @@ const LandingPage = () => {
 
   return (
     <div className="flex-1 flex items-center justify-center relative bg-yt-bg text-yt-text transition-colors duration-300 min-h-screen min-h-[100dvh] overflow-y-auto w-full px-4 py-12">
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 flex flex-col sm:flex-row items-center gap-2">
+        <button 
+          onClick={() => setIsHelpOpen(true)}
+          className="p-2 sm:px-3 sm:py-1.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+          title="Panduan Penggunaan"
+        >
+          <Info className="w-5 h-5 sm:w-4 sm:h-4 text-yt-muted" />
+          <span className="hidden sm:inline">Panduan</span>
+        </button>
         <ThemeToggle />
       </div>
+
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
 
       {/* Decorative Player Background Glow */}
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-youtube-red/10 rounded-full blur-[120px] pointer-events-none"></div>

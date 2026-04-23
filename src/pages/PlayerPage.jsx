@@ -5,7 +5,8 @@ import { db } from '../firebase';
 import YoutubePlayer from '../components/YoutubePlayer';
 import QueuePanel from '../components/QueuePanel';
 import ThemeToggle from '../components/ThemeToggle';
-import { Users, Copy, Check, Play, LogOut, Crown } from 'lucide-react';
+import HelpModal from '../components/HelpModal';
+import { Users, Copy, Check, Play, LogOut, Crown, Info } from 'lucide-react';
 
 const PlayerPage = () => {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ const PlayerPage = () => {
   const [hasRequestedHost, setHasRequestedHost] = useState(false); // Feedback UI tombol
   const [duplicateTabWarning, setDuplicateTabWarning] = useState(false);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const isLocalHost = globalHost?.sessionId === sessionId;
 
@@ -310,7 +312,10 @@ const PlayerPage = () => {
   return (
     <div className="flex flex-col h-screen h-[100dvh] w-full overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300">
       
+      
       {/* Modals */}
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+      
       {hostRequestData && isLocalHost && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
            <div className="bg-yt-card border border-yt-border p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
@@ -348,6 +353,10 @@ const PlayerPage = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">
+          <button onClick={() => setIsHelpOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors" title="Panduan Penggunaan">
+            <Info className="w-4 h-4 text-yt-muted" />
+            <span className="hidden lg:inline">Panduan</span>
+          </button>
           <button onClick={handleCopyLink} className="flex items-center gap-2 px-3 py-1.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors">
             {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
             <span className="hidden lg:inline">{copied ? 'Copied!' : 'Copy Link'}</span>
