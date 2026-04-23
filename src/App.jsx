@@ -8,7 +8,9 @@ function App() {
       <div className="min-h-screen selection:bg-youtube-red selection:text-white flex flex-col">
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/player" element={<PlayerPage />} />
+          <Route path="/room/:roomId" element={<PlayerPage />} />
+          {/* Fallback route to redirect legacy /player or unknown to homepage */}
+          <Route path="*" element={<LandingPage />} />
         </Routes>
       </div>
     </Router>

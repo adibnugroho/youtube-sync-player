@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ref, onValue, push, remove, set, onDisconnect } from 'firebase/database';
 import { db } from '../firebase';
 import YoutubePlayer from '../components/YoutubePlayer';
@@ -9,7 +9,7 @@ import { Users, Copy, Check, Play, LogOut, Crown } from 'lucide-react';
 
 const PlayerPage = () => {
   const navigate = useNavigate();
-  const roomId = 'global-room';
+  const { roomId } = useParams();
   
   const [sessionId] = useState(() => Math.random().toString(36).substring(2, 10));
   
@@ -35,10 +35,10 @@ const PlayerPage = () => {
 
   // 1. Cek Login & Cek Multitab
   useEffect(() => {
-    const savedName = localStorage.getItem('ytq_username');
-    const savedPass = localStorage.getItem('ytq_password');
-    if (!savedName || savedPass !== 'Ngewekuda') {
-      navigate('/');
+    const savedName = localStorage.getItem(`ytq_username_${roomId}`);
+    const savedPass = localStorage.getItem(`ytq_password_${roomId}`);
+    if (!savedName || !savedPass) {
+      navigate(`/?room=${roomId}`);
       return;
     }
     setUsername(savedName);
@@ -214,7 +214,17 @@ const PlayerPage = () => {
   const handleRemoveVideo = (id) => remove(ref(db, `rooms/${roomId}/queue/${id}`));
 
   const handleVideoEnd = () => {
-    if (isLocalHost && queue.length > 0) handleRemoveVideo(queue[0].id);
+    if (isLocalHost && queue.length > 0) {
+      handleRemoveVideo(queue[0].id);
+      // Reset player state strictly so next video starts correctly (especially for inactive tabs)
+      const stateRef = ref(db, `rooms/${roomId}/playerState`);
+      set(stateRef, {
+        state: 1, // Playing
+        time: 0,
+        updatedBy: sessionId,
+        timestamp: Date.now() + serverTimeOffset
+      });
+    }
   };
 
   const handleLocalPlayerStateChange = (state, time) => {
@@ -228,8 +238,8 @@ const PlayerPage = () => {
   };
 
   const handleCopyLink = () => {
-    const baseUrl = window.location.origin;
-    navigator.clipboard.writeText(baseUrl);
+    const linkUrl = window.location.href;
+    navigator.clipboard.writeText(linkUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -241,8 +251,8 @@ const PlayerPage = () => {
        remove(ref(db, `rooms/${roomId}/users/${sessionId}`));
        if (isLocalHost) remove(ref(db, `rooms/${roomId}/hostInfo`)); 
     }
-    localStorage.removeItem('ytq_username');
-    localStorage.removeItem('ytq_password');
+    localStorage.removeItem(`ytq_username_${roomId}`);
+    localStorage.removeItem(`ytq_password_${roomId}`);
     navigate('/');
   };
 
@@ -332,7 +342,7 @@ const PlayerPage = () => {
         <div className="flex items-center gap-2 sm:gap-4">
           <div className="w-8 h-8 rounded-full bg-youtube-red flex items-center justify-center shadow-lg"><Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" /></div>
           <div>
-            <h1 className="font-bold text-lg leading-tight flex items-center gap-2">Global Room {isLocalHost && <Crown className="w-4 h-4 text-yellow-500" />}</h1>
+            <h1 className="font-bold text-lg leading-tight flex items-center gap-2">{roomId} {isLocalHost && <Crown className="w-4 h-4 text-yellow-500" />}</h1>
             <p className="text-xs text-yt-muted">Login: <span className="text-yt-text font-medium">{username}</span></p>
           </div>
         </div>

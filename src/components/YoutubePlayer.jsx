@@ -91,6 +91,15 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
     setIsLocalMuted(!isLocalMuted);
   };
 
+  // Fix autoplay for background tabs: force play when new video loads
+  useEffect(() => {
+    if (playerRef.current && currentVideo?.videoId) {
+      if (remotePlayerState?.state === 1) {
+          playerRef.current.playVideo();
+      }
+    }
+  }, [currentVideo?.videoId]);
+
   useEffect(() => {
     forceSync();
 
