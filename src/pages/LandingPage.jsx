@@ -109,6 +109,18 @@ const LandingPage = () => {
             }
         }
         
+        // Cek apakah user dibanned
+        const banRef = ref(db, `rooms/${targetRoomId}/bannedUsers`);
+        const banSnapshot = await get(banRef);
+        if (banSnapshot.exists()) {
+           const bannedList = Object.values(banSnapshot.val());
+           if (bannedList.some(name => name.toLowerCase() === trimmedName.toLowerCase())) {
+              setErrorObj(`Username "${trimmedName}" has been banned from this room by the Host.`);
+              setIsLoading(false);
+              return;
+           }
+        }
+        
         // Cek username bentrok
         const usersRef = ref(db, `rooms/${targetRoomId}/users`);
         const usersSnapshot = await get(usersRef);

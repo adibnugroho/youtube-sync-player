@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Info, Crown, Users, ListVideo, LogIn } from 'lucide-react';
+import { X, Info, Crown, Users, ListVideo, LogIn, MessageSquare } from 'lucide-react';
 
 const HelpModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
@@ -44,12 +44,24 @@ const HelpModal = ({ isOpen, onClose }) => {
           </section>
 
           <section>
+            <h3 className="text-lg font-bold flex items-center gap-2 mb-3 text-youtube-red">
+              <MessageSquare className="w-5 h-5" /> Live Chat & Interaksi
+            </h3>
+            <ul className="list-disc list-inside space-y-2 text-sm text-yt-muted ml-1">
+              <li>Gunakan tab <strong>Live Chat</strong> di panel kanan untuk mengobrol dengan rekan di ruang yang sama secara Real-Time.</li>
+              <li>Terdapat tombol Emoji Cepat (Reactions) di atas kotak ketik untuk mengirimkan reaksi super kilat tanpa perlu mengetik.</li>
+              <li>Indikator berupa titik merah akan muncul di Tab Live Chat jika ada pesan masuk saat Anda sedang membuka tab Queue.</li>
+            </ul>
+          </section>
+
+          <section>
             <h3 className="text-lg font-bold flex items-center gap-2 mb-3 text-yellow-500">
               <Crown className="w-5 h-5" /> Kebijakan Host
             </h3>
             <ul className="list-disc list-inside space-y-2 text-sm text-yt-muted ml-1">
               <li>Pencipta room atau penerima estafet jabatan adalah seorang <strong>Host</strong>. Host ditandai dengan ikon Mahkota (<Crown className="inline w-3 h-3 text-yellow-500"/>).</li>
-              <li><strong className="text-yt-text">Hak Eksklusif:</strong> Hanya interaksi Host (Play, Pause, Skip, dan Play Now) yang akan tersinkronisasi ke seluruh pemain di dalam ruangan. Ini mencegah gangguan secara tidak sengaja oleh banyak partisipan.</li>
+              <li><strong className="text-yt-text">Hak Eksklusif Pemutaran:</strong> Hanya interaksi Host (Play, Pause, Skip, dan Play Now) yang akan tersinkronisasi ke seluruh pemain di dalam ruangan.</li>
+              <li><strong className="text-red-500">Menendang (Kick) User:</strong> Host memiliki wewenang untuk menendang user yang mengganggu. Klik daftar jumlah online, lalu klik "Kick" pada nama yang dituju. User tersebut akan diblokir tidak bisa masuk ruangan lagi dengan nama yang sama.</li>
               <li>Host dapat memberikan jabatannya kepada user lain dengan menekan tombol <strong>"Make Host"</strong> melalui daftar partisipan yang sedang online.</li>
             </ul>
           </section>
@@ -59,8 +71,8 @@ const HelpModal = ({ isOpen, onClose }) => {
               <Users className="w-5 h-5" /> Kebijakan Guest
             </h3>
             <ul className="list-disc list-inside space-y-2 text-sm text-yt-muted ml-1">
-              <li>Guest dapat menonton secara sinkron. Jika Guest men-pause videonya sendiri, itu tidak akan menghentikan video partisipan lain. Dalam beberapa saat sistem akan menyinkronkannya kembali mengikuti Host.</li>
-              <li>Guest dapat menambahkan dan menghapus video dari antrean.</li>
+              <li>Guest dapat menonton secara sinkron bersama Host.</li>
+              <li>Guest dapat menambahkan dan menghapus video dari antrean maupun berbincang di Live Chat.</li>
               <li>Guest dapat menekan tombol <strong>"Request Host"</strong> melalui daftar partisipan jika mereka butuh akses kontrol player secara mandiri.</li>
             </ul>
           </section>

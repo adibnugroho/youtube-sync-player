@@ -4,9 +4,10 @@ import { ref, onValue, push, remove, set, onDisconnect } from 'firebase/database
 import { db } from '../firebase';
 import YoutubePlayer from '../components/YoutubePlayer';
 import QueuePanel from '../components/QueuePanel';
+import ChatPanel from '../components/ChatPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import HelpModal from '../components/HelpModal';
-import { Users, Copy, Check, Play, LogOut, Crown, Info } from 'lucide-react';
+import { Users, Copy, Check, Play, LogOut, Crown, Info, MessageSquare, ListVideo } from 'lucide-react';
 
 const PlayerPage = () => {
   const navigate = useNavigate();
@@ -32,6 +33,10 @@ const PlayerPage = () => {
   const [duplicateTabWarning, setDuplicateTabWarning] = useState(false);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  
+  const [sidebarTab, setSidebarTab] = useState('queue'); // 'queue' or 'chat'
+  const [unreadChat, setUnreadChat] = useState(false);
+  const lastChatCountRef = useRef(0);
 
   const isLocalHost = globalHost?.sessionId === sessionId;
 
@@ -141,6 +146,36 @@ const PlayerPage = () => {
         setServerTimeOffset(snap.val() || 0);
     });
 
+    // Listener Banned Users
+    const banRef = ref(db, `rooms/${roomId}/bannedUsers`);
+    const unsubBan = onValue(banRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const bannedList = Object.values(snapshot.val());
+        if (bannedList.includes(username)) {
+          alert('You have been kicked from this room by the Host.');
+          localStorage.removeItem(`ytq_username_${roomId}`);
+          localStorage.removeItem(`ytq_password_${roomId}`);
+          navigate('/');
+        }
+      }
+    });
+
+    // Listener Chat for Unread badge
+    const chatRef = ref(db, `rooms/${roomId}/chat`);
+    const unsubChat = onValue(chatRef, (snapshot) => {
+      if (snapshot.exists()) {
+         const msgs = Object.values(snapshot.val());
+         if (msgs.length > lastChatCountRef.current) {
+            // New message arrived
+            const lastMsg = msgs[msgs.length - 1];
+            if (lastMsg.sender !== username && sidebarTab !== 'chat') {
+               setUnreadChat(true);
+            }
+         }
+         lastChatCountRef.current = msgs.length;
+      }
+    });
+
     return () => {
       unsubQueue();
       unsubConnected();
@@ -149,6 +184,8 @@ const PlayerPage = () => {
       unsubTransfer();
       unsubReqHost();
       unsubOffset();
+      unsubBan();
+      unsubChat();
     };
   }, [username, sessionId, roomId, duplicateTabWarning]);
 
@@ -256,6 +293,12 @@ const PlayerPage = () => {
     localStorage.removeItem(`ytq_username_${roomId}`);
     localStorage.removeItem(`ytq_password_${roomId}`);
     navigate('/');
+  };
+
+  const handleKickUser = (targetSessionId, targetName) => {
+    const banRef = ref(db, `rooms/${roomId}/bannedUsers`);
+    push(banRef, targetName);
+    remove(ref(db, `rooms/${roomId}/users/${targetSessionId}`));
   };
 
   const handlePlayNow = (id, index) => {
@@ -378,7 +421,10 @@ const PlayerPage = () => {
                          {globalHost?.sessionId === u.sessionId && <Crown className="w-3.5 h-3.5 text-yellow-500" title="Room Host" />}
                       </span>
                       {isLocalHost && u.sessionId !== sessionId && (
-                        <button onClick={() => handleSendTransferRequest(u.sessionId, u.username)} className="opacity-0 group-hover:opacity-100 bg-youtube-red text-white px-2 py-1 rounded text-[10px] font-bold">Make Host</button>
+                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                          <button onClick={() => handleSendTransferRequest(u.sessionId, u.username)} className="bg-youtube-red text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-600 transition-colors">Make Host</button>
+                          <button onClick={() => handleKickUser(u.sessionId, u.username)} className="bg-red-500 border border-red-700 text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 transition-colors">Kick</button>
+                        </div>
                       )}
                       {!isLocalHost && globalHost?.sessionId === u.sessionId && (
                         <button onClick={() => handleSendHostRequest(u.sessionId)} disabled={hasRequestedHost} className="opacity-0 group-hover:opacity-100 bg-blue-500 text-white px-2 py-1 rounded text-[10px] font-bold">
@@ -413,16 +459,41 @@ const PlayerPage = () => {
             serverTimeOffset={serverTimeOffset}
           />
         </div>
-        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[380px] lg:h-full z-10">
-          <QueuePanel 
-            queue={queue}
-            currentVideoId={currentVideo?.videoId}
-            onAddVideo={handleAddVideo}
-            onRemoveVideo={handleRemoveVideo}
-            onSkipVideo={handleVideoEnd}
-            onReorderQueue={handleReorderQueue}
-            onPlayNow={handlePlayNow}
-          />
+        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[380px] lg:h-full z-10 gap-2">
+          
+          {/* Tabs */}
+          <div className="flex gap-2 bg-black/5 dark:bg-white/5 p-1 rounded-xl shrink-0">
+            <button 
+              onClick={() => setSidebarTab('queue')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-lg transition-all ${sidebarTab === 'queue' ? 'bg-yt-card shadow-sm text-yt-text' : 'text-yt-muted hover:text-yt-text'}`}
+            >
+              <ListVideo className="w-4 h-4" /> Queue
+            </button>
+            <button 
+              onClick={() => { setSidebarTab('chat'); setUnreadChat(false); }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-lg transition-all relative ${sidebarTab === 'chat' ? 'bg-yt-card shadow-sm text-yt-text' : 'text-yt-muted hover:text-yt-text'}`}
+            >
+              <MessageSquareCore className="w-4 h-4" /> Live Chat
+              {unreadChat && sidebarTab !== 'chat' && (
+                <span className="absolute top-2 right-4 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              )}
+            </button>
+          </div>
+
+          <div className={`flex-1 min-h-0 flex flex-col ${sidebarTab === 'queue' ? 'flex' : 'hidden'}`}>
+            <QueuePanel 
+              queue={queue}
+              currentVideoId={currentVideo?.videoId}
+              onAddVideo={handleAddVideo}
+              onRemoveVideo={handleRemoveVideo}
+              onSkipVideo={handleVideoEnd}
+              onReorderQueue={handleReorderQueue}
+              onPlayNow={handlePlayNow}
+            />
+          </div>
+          <div className={`flex-1 min-h-0 flex flex-col ${sidebarTab === 'chat' ? 'flex' : 'hidden'}`}>
+            <ChatPanel roomId={roomId} username={username} />
+          </div>
         </div>
       </div>
     </div>
