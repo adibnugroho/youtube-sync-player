@@ -147,7 +147,7 @@ const LandingPage = () => {
           <div className="w-12 h-12 bg-youtube-red rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(255,0,0,0.4)]">
             <Play className="w-6 h-6 text-white ml-1" fill="currentColor" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Sync<span className="text-youtube-red">Play</span></h1>
+          <h1 className="text-3xl font-bold tracking-tight">Youtube<span className="text-youtube-red"> Playlist Queue</span></h1>
         </div>
         
         {/* Navigation Tabs */}
