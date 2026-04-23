@@ -135,12 +135,13 @@ const LandingPage = () => {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300 min-h-screen">
-      <div className="absolute top-6 right-6 z-20">
+    <div className="flex-1 flex items-center justify-center relative bg-yt-bg text-yt-text transition-colors duration-300 min-h-screen min-h-[100dvh] overflow-y-auto w-full px-4 py-12">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
         <ThemeToggle />
       </div>
 
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-youtube-red/10 rounded-full blur-[120px] pointer-events-none"></div>
+      {/* Decorative Player Background Glow */}
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-youtube-red/10 rounded-full blur-[120px] pointer-events-none"></div>
       
       <div className="z-10 w-full max-w-md bg-yt-card/80 backdrop-blur-xl p-8 rounded-2xl border border-yt-border shadow-2xl transition-colors duration-300">
         <div className="flex items-center justify-center mb-6 gap-3">
