@@ -252,8 +252,8 @@ const PlayerPage = () => {
 
   const handleRemoveVideo = (id) => remove(ref(db, `rooms/${roomId}/queue/${id}`));
 
-  const handleVideoEnd = () => {
-    if (isLocalHost && queue.length > 0) {
+  const handleVideoEnd = (isManualSkip = false) => {
+    if ((isLocalHost || isManualSkip) && queue.length > 0) {
       handleRemoveVideo(queue[0].id);
       // Reset player state strictly so next video starts correctly (especially for inactive tabs)
       const stateRef = ref(db, `rooms/${roomId}/playerState`);
@@ -309,6 +309,15 @@ const PlayerPage = () => {
     newQueue.unshift(targetItem);
     handleRemoveVideo(oldCurrent.id);
     handleReorderQueue(newQueue);
+
+    // Reset player state strictly so next video starts correctly from 0
+    const stateRef = ref(db, `rooms/${roomId}/playerState`);
+    set(stateRef, {
+      state: 1, // Playing
+      time: 0,
+      updatedBy: sessionId,
+      timestamp: Date.now() + serverTimeOffset
+    });
   };
 
   const handleSendTransferRequest = (targetSessionId, targetName) => {
@@ -486,7 +495,7 @@ const PlayerPage = () => {
               currentVideoId={currentVideo?.videoId}
               onAddVideo={handleAddVideo}
               onRemoveVideo={handleRemoveVideo}
-              onSkipVideo={handleVideoEnd}
+              onSkipVideo={() => handleVideoEnd(true)}
               onReorderQueue={handleReorderQueue}
               onPlayNow={handlePlayNow}
             />
