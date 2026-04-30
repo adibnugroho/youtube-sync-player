@@ -1,19 +1,19 @@
 import React, { useRef, useEffect, useState } from 'react';
 import YouTube from 'react-youtube';
 
+const opts = {
+  height: '100%',
+  width: '100%',
+  playerVars: {
+    autoplay: 1,
+    modestbranding: 1,
+    rel: 0,
+  },
+};
+
 const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalStateChange, localSessionId, isHost, serverTimeOffset }) => {
   const playerRef = useRef(null);
   const mountTimeRef = useRef(Date.now());
-
-  const opts = {
-    height: '100%',
-    width: '100%',
-    playerVars: {
-      autoplay: 1,
-      modestbranding: 1,
-      rel: 0,
-    },
-  };
 
   const handleStateChange = (event) => {
     const state = event.data;
@@ -30,7 +30,7 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
   const forceSync = () => {
     try {
-      if (!remotePlayerState || !playerRef.current) return;
+      if (!remotePlayerState || !playerRef.current || !currentVideo) return;
 
       const player = playerRef.current;
 
@@ -117,13 +117,22 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
   // Digantikan oleh handleReady + forceSync
 
   useEffect(() => {
-    forceSync();
+    if (currentVideo) {
+      forceSync();
+    }
     const handleVisibilityChange = () => {
-      if (!document.hidden) forceSync();
+      if (!document.hidden && currentVideo) forceSync();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [remotePlayerState, localSessionId, serverTimeOffset]);
+  }, [remotePlayerState, localSessionId, serverTimeOffset, currentVideo]);
+
+  // Bersihkan playerRef saat komponen unmount agar forceSync tidak memanggil player yang sudah hancur
+  useEffect(() => {
+    return () => {
+      playerRef.current = null;
+    };
+  }, []);
 
   if (!currentVideo) {
     return (
