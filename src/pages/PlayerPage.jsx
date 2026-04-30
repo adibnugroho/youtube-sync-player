@@ -37,8 +37,10 @@ const PlayerPage = () => {
   const [sidebarTab, setSidebarTab] = useState('queue'); // 'queue' or 'chat'
   const [unreadChat, setUnreadChat] = useState(false);
   const lastChatCountRef = useRef(0);
+  const videoEndLockRef = useRef(false); // mencegah handleVideoEnd dipanggil dobel
 
   const isLocalHost = globalHost?.sessionId === sessionId;
+  const prevIsHostRef = useRef(null); // null = belum diinisialisasi (untuk deteksi transisi host baru)
 
   // 1. Cek Login & Cek Multitab
   useEffect(() => {
@@ -233,6 +235,48 @@ const PlayerPage = () => {
     };
   }, [username, sessionId, roomId, duplicateTabWarning]);
 
+  // 4. Fallback: Ketika user ini tiba-tiba jadi Host baru (karena host lama disconnect)
+  //    → broadcast posisi video saat ini ke Firebase agar semua guest bisa sync ulang
+  useEffect(() => {
+    if (!username || duplicateTabWarning) return;
+
+    if (prevIsHostRef.current === null) {
+      prevIsHostRef.current = isLocalHost;
+      return;
+    }
+
+    if (isLocalHost && prevIsHostRef.current === false) {
+      prevIsHostRef.current = true;
+      const timer = setTimeout(() => {
+        // Ambil snapshot terbaru langsung dari Firebase untuk hindari stale closure
+        import('firebase/database').then(({ get }) => {
+          const stateRef = ref(db, `rooms/${roomId}/playerState`);
+          get(stateRef).then((snap) => {
+            const latest = snap.val();
+            if (!latest) return;
+
+            let currentTime = latest.time || 0;
+            if (latest.state === 1) {
+              const elapsed = (Date.now() - latest.timestamp) / 1000;
+              currentTime = Math.max(0, currentTime + elapsed);
+            }
+
+            set(stateRef, {
+              state: latest.state || 2,
+              time: currentTime,
+              updatedBy: sessionId,
+              timestamp: Date.now()
+            });
+          });
+        });
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }
+
+    prevIsHostRef.current = isLocalHost;
+  }, [isLocalHost, username, duplicateTabWarning, roomId, sessionId]);
+
   // Handlers
   const handleAddVideo = (videoId, title = '') => {
     const queueRef = ref(db, `rooms/${roomId}/queue`);
@@ -253,16 +297,26 @@ const PlayerPage = () => {
   const handleRemoveVideo = (id) => remove(ref(db, `rooms/${roomId}/queue/${id}`));
 
   const handleVideoEnd = (isManualSkip = false) => {
+    // Cegah event 'ended' dari YouTube yang bisa terpanggil dobel
+    if (videoEndLockRef.current) return;
+
     if ((isLocalHost || isManualSkip) && queue.length > 0) {
+      videoEndLockRef.current = true; // kunci selama proses advance
+
       handleRemoveVideo(queue[0].id);
-      // Reset player state strictly so next video starts correctly (especially for inactive tabs)
-      const stateRef = ref(db, `rooms/${roomId}/playerState`);
-      set(stateRef, {
-        state: 1, // Playing
-        time: 0,
-        updatedBy: sessionId,
-        timestamp: Date.now() + serverTimeOffset
-      });
+
+      // Delay 300ms sebelum set playerState untuk mencegah race condition
+      setTimeout(() => {
+        const stateRef = ref(db, `rooms/${roomId}/playerState`);
+        set(stateRef, {
+          state: 1,
+          time: 0,
+          updatedBy: sessionId,
+          timestamp: Date.now() + serverTimeOffset
+        });
+        // Buka kunci setelah 2 detik — cukup waktu untuk video baru load
+        setTimeout(() => { videoEndLockRef.current = false; }, 2000);
+      }, 300);
     }
   };
 
@@ -310,14 +364,16 @@ const PlayerPage = () => {
     handleRemoveVideo(oldCurrent.id);
     handleReorderQueue(newQueue);
 
-    // Reset player state strictly so next video starts correctly from 0
-    const stateRef = ref(db, `rooms/${roomId}/playerState`);
-    set(stateRef, {
-      state: 1, // Playing
-      time: 0,
-      updatedBy: sessionId,
-      timestamp: Date.now() + serverTimeOffset
-    });
+    // FIX: Delay sama seperti handleVideoEnd untuk mencegah race condition
+    setTimeout(() => {
+      const stateRef = ref(db, `rooms/${roomId}/playerState`);
+      set(stateRef, {
+        state: 1, // Playing
+        time: 0,
+        updatedBy: sessionId,
+        timestamp: Date.now() + serverTimeOffset
+      });
+    }, 300);
   };
 
   const handleSendTransferRequest = (targetSessionId, targetName) => {
@@ -362,7 +418,7 @@ const PlayerPage = () => {
   const currentVideo = queue.length > 0 ? queue[0] : null;
 
   return (
-    <div className="flex flex-col h-screen h-[100dvh] w-full overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300">
+    <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-yt-bg text-yt-text transition-colors duration-300">
       
       
       {/* Modals */}
@@ -468,7 +524,7 @@ const PlayerPage = () => {
             serverTimeOffset={serverTimeOffset}
           />
         </div>
-        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[380px] lg:h-full z-10 gap-2">
+        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[45dvh] md:h-[420px] lg:h-full z-10 gap-2">
           
           {/* Tabs */}
           <div className="flex gap-2 bg-black/5 dark:bg-white/5 p-1 rounded-xl shrink-0">
@@ -489,7 +545,7 @@ const PlayerPage = () => {
             </button>
           </div>
 
-          <div className={`flex-1 min-h-0 flex flex-col ${sidebarTab === 'queue' ? 'flex' : 'hidden'}`}>
+          <div className={`flex-1 min-h-0 flex flex-col overflow-hidden ${sidebarTab === 'queue' ? 'flex' : 'hidden'}`}>
             <QueuePanel 
               queue={queue}
               currentVideoId={currentVideo?.videoId}
@@ -500,7 +556,7 @@ const PlayerPage = () => {
               onPlayNow={handlePlayNow}
             />
           </div>
-          <div className={`flex-1 min-h-0 flex flex-col ${sidebarTab === 'chat' ? 'flex' : 'hidden'}`}>
+          <div className={`flex-1 min-h-0 flex flex-col overflow-hidden ${sidebarTab === 'chat' ? 'flex' : 'hidden'}`}>
             <ChatPanel roomId={roomId} username={username} />
           </div>
         </div>

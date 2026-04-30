@@ -48,3 +48,29 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #a0a0a0;
 }
+
+/* Fix layout shift di MacOS / Safari */
+/* Mencegah perubahan layout saat scrollbar overlay muncul/hilang */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Reservasi ruang scrollbar agar layout tidak bergeser saat konten berubah */
+  scrollbar-gutter: stable;
+  /* Pastikan tinggi tidak terpengaruh address bar Safari */
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  /* Cegah overscroll bounce di Safari MacOS yang bisa menyebabkan layout aneh */
+  overscroll-behavior: none;
+}
+
+#root {
+  height: 100%;
+  /* Isolasi layout agar tidak terpengaruh scrollbar eksternal */
+  isolation: isolate;
+}
+

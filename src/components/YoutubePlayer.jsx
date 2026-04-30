@@ -16,18 +16,12 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
   };
 
   const handleStateChange = (event) => {
-    // 0 = ended, 1 = playing, 2 = paused
     const state = event.data;
     if (state === 0) {
       if (onVideoEnd) onVideoEnd();
     } else if (state === 1 || state === 2) {
       if (Date.now() - mountTimeRef.current < 3000) return;
-      
-      // Prevent sudden pause when browser forces auto-pause for background/muted tabs
       if (state === 2 && document.hidden) return;
-
-      // HANYA HOST yang boleh men-trigger perubahan state ke server
-      // Jika non-host mengubah player (misal karena ter-sync), jangan dibroadcast balik
       if (onLocalStateChange && isHost) {
         onLocalStateChange(state, event.target.getCurrentTime());
       }
@@ -36,29 +30,47 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
   const forceSync = () => {
     if (!remotePlayerState || !playerRef.current) return;
-    
+
     const player = playerRef.current;
-    if (remotePlayerState.updatedBy === localSessionId) return;
+
+    // FIX #1: Jika client ini yang set state, skip HANYA jika sudah playing
+    // Sebelumnya: selalu skip jika updatedBy === localSessionId → host tidak auto-play video baru
+    if (remotePlayerState.updatedBy === localSessionId) {
+      try {
+        const ps = player.getPlayerState();
+        if (ps === 1) return; // sudah playing, tidak perlu apa-apa
+      } catch (e) {
+        return;
+      }
+    }
 
     const currentTime = player.getCurrentTime() || 0;
     let expectedTime = remotePlayerState.time || 0;
 
     if (remotePlayerState.state === 1) {
-      // Add elapsed time since play was clicked for accuracy
       const currentServerTime = Date.now() + (serverTimeOffset || 0);
       const elapsedSeconds = (currentServerTime - remotePlayerState.timestamp) / 1000;
-      expectedTime += elapsedSeconds;
+      expectedTime = Math.max(0, expectedTime + elapsedSeconds);
+
+      // FIX #2: Jika player di state "ended" (0), gunakan loadVideoById
+      // player.playVideo() TIDAK bisa resume dari state ended tanpa reload
+      try {
+        const ps = player.getPlayerState();
+        if (ps === 0 && currentVideo?.videoId) {
+          player.loadVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+          return;
+        }
+      } catch (e) {}
 
       const timeDiff = Math.abs(currentTime - expectedTime);
-      // Sync if behind or ahead by at least 2 seconds
       if (timeDiff > 2) {
-          player.seekTo(expectedTime, true);
+        player.seekTo(expectedTime, true);
       }
       player.playVideo();
     } else if (remotePlayerState.state === 2) {
       const timeDiff = Math.abs(currentTime - expectedTime);
       if (timeDiff > 0.5) {
-          player.seekTo(expectedTime, true);
+        player.seekTo(expectedTime, true);
       }
       player.pauseVideo();
     }
@@ -66,17 +78,15 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
   const handleReady = (event) => {
     playerRef.current = event.target;
-    // All auto-unmuted to allow background play
-    // Users can manually mute via the player icon
+    mountTimeRef.current = Date.now();
     playerRef.current.unMute();
-    
-    // Trigger sync immediately on ready
-    forceSync();
+
+    // FIX #3: Beri jeda kecil agar remotePlayerState sudah settle sebelum sync
+    setTimeout(() => forceSync(), 300);
   };
 
   const [isLocalMuted, setIsLocalMuted] = useState(false);
 
-  // Mute/Unmute listener dynamically based on local toggle
   useEffect(() => {
     if (playerRef.current) {
       if (isLocalMuted) {
@@ -87,33 +97,19 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
     }
   }, [isLocalMuted]);
 
-  const toggleLocalMute = () => {
-    setIsLocalMuted(!isLocalMuted);
-  };
+  const toggleLocalMute = () => setIsLocalMuted(!isLocalMuted);
 
-  // Fix autoplay for background tabs: force play when new video loads
-  useEffect(() => {
-    if (playerRef.current && currentVideo?.videoId) {
-      if (remotePlayerState?.state === 1) {
-          playerRef.current.playVideo();
-      }
-    }
-  }, [currentVideo?.videoId]);
+  // DIHAPUS: useEffect [currentVideo?.videoId] yang tidak reliable
+  // karena playerRef.current = null saat component baru mount
+  // Digantikan oleh handleReady + forceSync
 
   useEffect(() => {
     forceSync();
-
-    // Run auto re-sync when tab becomes active again
     const handleVisibilityChange = () => {
-       if (!document.hidden) {
-           forceSync();
-       }
+      if (!document.hidden) forceSync();
     };
-    
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-       document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [remotePlayerState, localSessionId, serverTimeOffset]);
 
   if (!currentVideo) {
@@ -128,16 +124,15 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
   return (
     <div className="w-full max-h-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl relative group">
-      {/* Overlay info & Speaker Toggle */}
       <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
           <span className="text-sm font-medium text-white/90">Played by <span className="text-youtube-red">{currentVideo.sender}</span></span>
         </div>
-        
-        <button 
+
+        <button
           onClick={toggleLocalMute}
           className={`p-2 rounded-full backdrop-blur-md border transition-all ${isLocalMuted ? 'bg-red-500 border-red-400 text-white' : 'bg-black/60 border-white/10 text-white hover:bg-white/20'}`}
-          title={isLocalMuted ? "Unmute" : "Mute (Local)"}
+          title={isLocalMuted ? 'Unmute' : 'Mute (Local)'}
         >
           {isLocalMuted ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
