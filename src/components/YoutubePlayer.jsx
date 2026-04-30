@@ -42,7 +42,8 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
       }
 
       const playerVideoId = player.getVideoData()?.video_id;
-      const isDifferentVideo = playerVideoId && currentVideo?.videoId && playerVideoId !== currentVideo.videoId;
+      // FIX: Jika player belum punya video (undefined) atau ID berbeda, isDifferentVideo = true
+      const isDifferentVideo = currentVideo?.videoId && playerVideoId !== currentVideo.videoId;
 
       const currentTime = player.getCurrentTime() || 0;
       let expectedTime = remotePlayerState.time || 0;
@@ -54,7 +55,11 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
       }
 
       if (isDifferentVideo) {
-        player.loadVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+        if (remotePlayerState.state === 2) {
+          player.cueVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+        } else {
+          player.loadVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+        }
         return;
       }
 
