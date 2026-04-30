@@ -29,50 +29,63 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
   };
 
   const forceSync = () => {
-    if (!remotePlayerState || !playerRef.current) return;
+    try {
+      if (!remotePlayerState || !playerRef.current) return;
 
-    const player = playerRef.current;
+      const player = playerRef.current;
 
-    // FIX #1: Jika client ini yang set state, skip HANYA jika sudah playing
-    // Sebelumnya: selalu skip jika updatedBy === localSessionId → host tidak auto-play video baru
-    if (remotePlayerState.updatedBy === localSessionId) {
-      try {
-        const ps = player.getPlayerState();
-        if (ps === 1) return; // sudah playing, tidak perlu apa-apa
-      } catch (e) {
+      const playerVideoId = player.getVideoData()?.video_id;
+      const isDifferentVideo = playerVideoId && currentVideo?.videoId && playerVideoId !== currentVideo.videoId;
+
+      const currentTime = player.getCurrentTime() || 0;
+      let expectedTime = remotePlayerState.time || 0;
+
+      if (remotePlayerState.state === 1) {
+        const currentServerTime = Date.now() + (serverTimeOffset || 0);
+        const elapsedSeconds = (currentServerTime - remotePlayerState.timestamp) / 1000;
+        expectedTime = Math.max(0, expectedTime + elapsedSeconds);
+      }
+
+      if (isDifferentVideo) {
+        player.loadVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
         return;
       }
-    }
 
-    const currentTime = player.getCurrentTime() || 0;
-    let expectedTime = remotePlayerState.time || 0;
-
-    if (remotePlayerState.state === 1) {
-      const currentServerTime = Date.now() + (serverTimeOffset || 0);
-      const elapsedSeconds = (currentServerTime - remotePlayerState.timestamp) / 1000;
-      expectedTime = Math.max(0, expectedTime + elapsedSeconds);
-
-      // FIX #2: Jika player di state "ended" (0), gunakan loadVideoById
-      // player.playVideo() TIDAK bisa resume dari state ended tanpa reload
-      try {
-        const ps = player.getPlayerState();
-        if (ps === 0 && currentVideo?.videoId) {
-          player.loadVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+      // FIX #1: Jika client ini yang set state, skip HANYA jika sudah playing
+      // Sebelumnya: selalu skip jika updatedBy === localSessionId → host tidak auto-play video baru
+      if (remotePlayerState.updatedBy === localSessionId) {
+        try {
+          const ps = player.getPlayerState();
+          if (ps === 1) return; // sudah playing, tidak perlu apa-apa
+        } catch (e) {
           return;
         }
-      } catch (e) {}
+      }
 
-      const timeDiff = Math.abs(currentTime - expectedTime);
-      if (timeDiff > 2) {
-        player.seekTo(expectedTime, true);
+      if (remotePlayerState.state === 1) {
+        // FIX #2: Jika player di state "ended" (0), gunakan playVideo atau loadVideoById
+        try {
+          const ps = player.getPlayerState();
+          if (ps === 0 && currentVideo?.videoId) {
+            player.loadVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+            return;
+          }
+        } catch (e) {}
+
+        const timeDiff = Math.abs(currentTime - expectedTime);
+        if (timeDiff > 2) {
+          player.seekTo(expectedTime, true);
+        }
+        player.playVideo();
+      } else if (remotePlayerState.state === 2) {
+        const timeDiff = Math.abs(currentTime - expectedTime);
+        if (timeDiff > 0.5) {
+          player.seekTo(expectedTime, true);
+        }
+        player.pauseVideo();
       }
-      player.playVideo();
-    } else if (remotePlayerState.state === 2) {
-      const timeDiff = Math.abs(currentTime - expectedTime);
-      if (timeDiff > 0.5) {
-        player.seekTo(expectedTime, true);
-      }
-      player.pauseVideo();
+    } catch (error) {
+      console.warn("YouTube API error in forceSync:", error);
     }
   };
 
@@ -122,6 +135,8 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
     );
   }
 
+  const [initialVideoId] = useState(currentVideo?.videoId);
+
   return (
     <div className="w-full max-h-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl relative group">
       <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity">
@@ -142,7 +157,7 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
         </button>
       </div>
       <YouTube
-        videoId={currentVideo.videoId}
+        videoId={initialVideoId}
         opts={opts}
         onStateChange={handleStateChange}
         onReady={handleReady}
