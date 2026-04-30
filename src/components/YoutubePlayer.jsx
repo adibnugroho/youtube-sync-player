@@ -30,9 +30,16 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
   const forceSync = () => {
     try {
-      if (!remotePlayerState || !playerRef.current || !currentVideo) return;
+      if (!remotePlayerState || !playerRef.current) return;
 
       const player = playerRef.current;
+
+      if (!currentVideo) {
+        // Hentikan video jika antrean kosong agar tidak ada suara hantu
+        const ps = player.getPlayerState();
+        if (ps === 1 || ps === 3) player.pauseVideo();
+        return;
+      }
 
       const playerVideoId = player.getVideoData()?.video_id;
       const isDifferentVideo = playerVideoId && currentVideo?.videoId && playerVideoId !== currentVideo.videoId;
@@ -134,45 +141,48 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
     };
   }, []);
 
-  if (!currentVideo) {
-    return (
-      <div className="w-full h-full my-auto aspect-video bg-yt-card border border-yt-border rounded-2xl flex flex-col items-center justify-center text-yt-muted transition-colors duration-300 shadow-2xl">
+  const [initialVideoId] = useState(currentVideo?.videoId || '');
+
+  return (
+    <div className="w-full h-full relative aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl group">
+      
+      {/* Placeholder Overlay (Tampil saat queue kosong) */}
+      <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-yt-card border border-yt-border transition-opacity duration-300 ${!currentVideo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
         <YoutubePlaceholderIcon />
         <p className="mt-4 text-xl font-medium tracking-wide">Empty Queue</p>
         <p className="text-sm opacity-60 mt-1">Add a video from the right panel</p>
       </div>
-    );
-  }
 
-  const [initialVideoId] = useState(currentVideo?.videoId);
+      {/* Player Area (Selalu dirender agar API YouTube tidak crash saat unmount) */}
+      <div className={`absolute inset-0 z-10 transition-opacity duration-300 ${currentVideo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+        {currentVideo && (
+          <div className="absolute top-4 left-4 right-4 z-30 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+              <span className="text-sm font-medium text-white/90">Played by <span className="text-youtube-red">{currentVideo.sender}</span></span>
+            </div>
 
-  return (
-    <div className="w-full max-h-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl relative group">
-      <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-          <span className="text-sm font-medium text-white/90">Played by <span className="text-youtube-red">{currentVideo.sender}</span></span>
-        </div>
-
-        <button
-          onClick={toggleLocalMute}
-          className={`p-2 rounded-full backdrop-blur-md border transition-all ${isLocalMuted ? 'bg-red-500 border-red-400 text-white' : 'bg-black/60 border-white/10 text-white hover:bg-white/20'}`}
-          title={isLocalMuted ? 'Unmute' : 'Mute (Local)'}
-        >
-          {isLocalMuted ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-          )}
-        </button>
+            <button
+              onClick={toggleLocalMute}
+              className={`p-2 rounded-full backdrop-blur-md border transition-all ${isLocalMuted ? 'bg-red-500 border-red-400 text-white' : 'bg-black/60 border-white/10 text-white hover:bg-white/20'}`}
+              title={isLocalMuted ? 'Unmute' : 'Mute (Local)'}
+            >
+              {isLocalMuted ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+              )}
+            </button>
+          </div>
+        )}
+        <YouTube
+          videoId={initialVideoId}
+          opts={opts}
+          onStateChange={handleStateChange}
+          onReady={handleReady}
+          className="w-full h-full pointer-events-auto"
+          iframeClassName="w-full h-full"
+        />
       </div>
-      <YouTube
-        videoId={initialVideoId}
-        opts={opts}
-        onStateChange={handleStateChange}
-        onReady={handleReady}
-        className="w-full h-full pointer-events-auto"
-        iframeClassName="w-full h-full"
-      />
     </div>
   );
 };
