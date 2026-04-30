@@ -303,20 +303,23 @@ const PlayerPage = () => {
     if ((isLocalHost || isManualSkip) && queue.length > 0) {
       videoEndLockRef.current = true; // kunci selama proses advance
 
-      handleRemoveVideo(queue[0].id);
+      // Gunakan atomic update: update queue dan playerState bersamaan
+      // Ini mencegah race condition tanpa perlu setTimeout yang rentan hilang saat refresh
+      const updates = {};
+      updates[`rooms/${roomId}/queue/${queue[0].id}`] = null;
+      updates[`rooms/${roomId}/playerState`] = {
+        state: 1,
+        time: 0,
+        updatedBy: sessionId,
+        timestamp: Date.now() + serverTimeOffset
+      };
 
-      // Delay 300ms sebelum set playerState untuk mencegah race condition
-      setTimeout(() => {
-        const stateRef = ref(db, `rooms/${roomId}/playerState`);
-        set(stateRef, {
-          state: 1,
-          time: 0,
-          updatedBy: sessionId,
-          timestamp: Date.now() + serverTimeOffset
-        });
-        // Buka kunci setelah 2 detik — cukup waktu untuk video baru load
-        setTimeout(() => { videoEndLockRef.current = false; }, 2000);
-      }, 300);
+      import('firebase/database').then(({ update }) => {
+        update(ref(db), updates);
+      });
+
+      // Buka kunci setelah 2 detik — cukup waktu untuk video baru load
+      setTimeout(() => { videoEndLockRef.current = false; }, 2000);
     }
   };
 
@@ -361,19 +364,26 @@ const PlayerPage = () => {
     const [targetItem] = newQueue.splice(index, 1);
     const [oldCurrent] = newQueue.splice(0, 1);
     newQueue.unshift(targetItem);
-    handleRemoveVideo(oldCurrent.id);
-    handleReorderQueue(newQueue);
+    
+    // Atomic update untuk queue reorder, hapus video lama, dan update playerState
+    const updates = {};
+    updates[`rooms/${roomId}/queue/${oldCurrent.id}`] = null;
+    
+    const baseTime = Date.now();
+    newQueue.forEach((item, idx) => {
+       updates[`rooms/${roomId}/queue/${item.id}/orderIndex`] = baseTime + idx;
+    });
 
-    // FIX: Delay sama seperti handleVideoEnd untuk mencegah race condition
-    setTimeout(() => {
-      const stateRef = ref(db, `rooms/${roomId}/playerState`);
-      set(stateRef, {
-        state: 1, // Playing
-        time: 0,
-        updatedBy: sessionId,
-        timestamp: Date.now() + serverTimeOffset
-      });
-    }, 300);
+    updates[`rooms/${roomId}/playerState`] = {
+      state: 1, // Playing
+      time: 0,
+      updatedBy: sessionId,
+      timestamp: Date.now() + serverTimeOffset
+    };
+
+    import('firebase/database').then(({ update }) => {
+      update(ref(db), updates);
+    });
   };
 
   const handleSendTransferRequest = (targetSessionId, targetName) => {

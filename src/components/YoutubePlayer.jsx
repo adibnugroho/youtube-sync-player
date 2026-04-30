@@ -142,7 +142,6 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
         </button>
       </div>
       <YouTube
-        key={currentVideo.id}
         videoId={currentVideo.videoId}
         opts={opts}
         onStateChange={handleStateChange}
