@@ -7,6 +7,18 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-04-30
 
+### 🌐 UI & Localization
+- **"Panduan" → "Guide"** — Tombol panduan di header room dan halaman depan diubah menjadi "Guide" untuk konsistensi penggunaan Bahasa Inggris di seluruh antarmuka.
+- **Language Toggle di User Guide** — Ditambahkan toggle switch EN / ID di dalam modal panduan penggunaan, memungkinkan user beralih antara Bahasa Inggris dan Bahasa Indonesia secara langsung tanpa menutup modal. Default membuka dalam Bahasa Inggris.
+- **Konten User Guide diperbarui** — Panduan penggunaan diperbarui untuk mencakup fitur-fitur terbaru yang belum terdokumentasi sebelumnya:
+  - Auto-advance video otomatis saat video selesai
+  - Drag-and-drop reorder queue
+  - Host fallback otomatis jika Host disconnect
+  - Request Host memerlukan persetujuan dari Host aktif
+
+### 🔒 Security Fix
+- **Firebase Permission Denied saat Create Room** — Rules Firebase yang dipasang sebelumnya menggunakan `.validate: "newData.hasChildren(['state'])"` yang memblokir penulisan ke path `metadata` saat membuat room baru (karena tidak punya field `state`). Rules diperbarui: validasi dihapus, akses tetap dibatasi hanya ke path `/rooms/{roomId}`.
+
 ### 🐛 Bug Fixes
 - **[Critical] Blank screen setelah video selesai** — Player YouTube tidak bisa `resume` dari state `ended` menggunakan `playVideo()`. Diganti dengan `loadVideoById()` agar video bisa di-reload dengan benar.
 - **[Critical] Host tidak auto-play video berikutnya** — `forceSync()` selalu skip eksekusi jika `updatedBy === localSessionId`, sehingga host yang men-trigger advance queue tidak pernah memulai video baru. Sekarang skip hanya jika player **sudah dalam kondisi playing**.

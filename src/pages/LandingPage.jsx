@@ -154,10 +154,10 @@ const LandingPage = () => {
         <button 
           onClick={() => setIsHelpOpen(true)}
           className="p-2 sm:px-3 sm:py-1.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
-          title="Panduan Penggunaan"
+          title="User Guide"
         >
           <Info className="w-5 h-5 sm:w-4 sm:h-4 text-yt-muted" />
-          <span className="hidden sm:inline">Panduan</span>
+          <span className="hidden sm:inline">Guide</span>
         </button>
         <ThemeToggle />
       </div>

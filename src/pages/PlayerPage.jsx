@@ -461,9 +461,9 @@ const PlayerPage = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <button onClick={() => setIsHelpOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors" title="Panduan Penggunaan">
+          <button onClick={() => setIsHelpOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors" title="User Guide">
             <Info className="w-4 h-4 text-yt-muted" />
-            <span className="hidden lg:inline">Panduan</span>
+            <span className="hidden lg:inline">Guide</span>
           </button>
           <button onClick={handleCopyLink} className="flex items-center gap-2 px-3 py-1.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-sm font-medium transition-colors">
             {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
