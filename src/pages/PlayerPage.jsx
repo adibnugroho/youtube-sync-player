@@ -35,6 +35,7 @@ const PlayerPage = () => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   
   const [sidebarTab, setSidebarTab] = useState('queue'); // 'queue' or 'chat'
+  const sidebarTabRef = useRef('queue'); // ref untuk diakses dari dalam Firebase listener (closure)
   const [unreadChat, setUnreadChat] = useState(false);
   const lastChatCountRef = useRef(0);
   const videoEndLockRef = useRef(false); // mencegah handleVideoEnd dipanggil dobel
@@ -170,7 +171,7 @@ const PlayerPage = () => {
          if (msgs.length > lastChatCountRef.current) {
             // New message arrived
             const lastMsg = msgs[msgs.length - 1];
-            if (lastMsg.sender !== username && sidebarTab !== 'chat') {
+            if (lastMsg.sender !== username && sidebarTabRef.current !== 'chat') {
                setUnreadChat(true);
             }
          }
@@ -216,16 +217,12 @@ const PlayerPage = () => {
     });
 
     const handleBeforeUnload = () => {
-      if (onlineCountRef.current <= 1) {
-         remove(ref(db, `rooms/${roomId}`));
-      } else {
-         remove(ref(db, `rooms/${roomId}/users/${sessionId}`));
-         import('firebase/database').then(({ get }) => {
-            get(hostRef).then(snap => {
-               if (snap.val()?.sessionId === sessionId) remove(hostRef);
-            });
-         });
-      }
+      // Hanya hapus presence user — Firebase onDisconnect sudah mengurus
+      // penghapusan hostInfo secara otomatis saat koneksi terputus.
+      // JANGAN hapus seluruh room di sini: beforeunload terpicu saat refresh juga,
+      // sehingga queue akan ikut terhapus padahal user hanya me-refresh halaman.
+      // Penghapusan room hanya dilakukan saat explicit logout (handleLogout).
+      remove(ref(db, `rooms/${roomId}/users/${sessionId}`));
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
@@ -303,13 +300,16 @@ const PlayerPage = () => {
     if ((isLocalHost || isManualSkip) && queue.length > 0) {
       videoEndLockRef.current = true; // kunci selama proses advance
 
-      // Gunakan atomic update: update queue dan playerState bersamaan
-      // Ini mencegah race condition tanpa perlu setTimeout yang rentan hilang saat refresh
+      // Gunakan atomic update: update queue dan playerState bersamaan.
+      // videoId disertakan agar forceSync di semua client bisa langsung load video berikutnya
+      // tanpa harus menunggu queue listener arrive (mencegah race condition Firebase).
+      const nextVideo = queue[1] || null;
       const updates = {};
       updates[`rooms/${roomId}/queue/${queue[0].id}`] = null;
       updates[`rooms/${roomId}/playerState`] = {
         state: 1,
         time: 0,
+        videoId: nextVideo?.videoId ?? null,
         updatedBy: sessionId,
         timestamp: Date.now() + serverTimeOffset
       };
@@ -375,8 +375,9 @@ const PlayerPage = () => {
     });
 
     updates[`rooms/${roomId}/playerState`] = {
-      state: 1, // Playing
+      state: 1,
       time: 0,
+      videoId: targetItem.videoId,
       updatedBy: sessionId,
       timestamp: Date.now() + serverTimeOffset
     };
@@ -520,7 +521,7 @@ const PlayerPage = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden min-h-0 relative">
-        <div className="flex-1 h-full flex items-center justify-center p-0 sm:p-4 min-h-0 relative">
+        <div className="flex-1 flex items-center justify-center min-h-0 relative">
           {/* Decorative Player Background Glow */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl aspect-video bg-youtube-red/10 rounded-[100%] blur-[120px] pointer-events-none opacity-50 dark:opacity-30"></div>
           
@@ -534,18 +535,18 @@ const PlayerPage = () => {
             serverTimeOffset={serverTimeOffset}
           />
         </div>
-        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[45dvh] md:h-[420px] lg:h-full z-10 gap-2">
+        <div className="w-full lg:w-96 flex flex-col shrink-0 min-h-0 h-[45dvh] lg:h-full z-10 gap-2">
           
           {/* Tabs */}
           <div className="flex gap-2 bg-black/5 dark:bg-white/5 p-1 rounded-xl shrink-0">
             <button 
-              onClick={() => setSidebarTab('queue')}
+              onClick={() => { sidebarTabRef.current = 'queue'; setSidebarTab('queue'); }}
               className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-lg transition-all ${sidebarTab === 'queue' ? 'bg-yt-card shadow-sm text-yt-text' : 'text-yt-muted hover:text-yt-text'}`}
             >
               <ListVideo className="w-4 h-4" /> Queue
             </button>
             <button 
-              onClick={() => { setSidebarTab('chat'); setUnreadChat(false); }}
+              onClick={() => { sidebarTabRef.current = 'chat'; setSidebarTab('chat'); setUnreadChat(false); }}
               className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-lg transition-all relative ${sidebarTab === 'chat' ? 'bg-yt-card shadow-sm text-yt-text' : 'text-yt-muted hover:text-yt-text'}`}
             >
               <MessageSquare className="w-4 h-4" /> Live Chat

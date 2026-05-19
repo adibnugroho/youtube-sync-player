@@ -56,9 +56,6 @@ body {
 }
 
 html {
-  /* Reservasi ruang scrollbar agar layout tidak bergeser saat konten berubah */
-  scrollbar-gutter: stable;
-  /* Pastikan tinggi tidak terpengaruh address bar Safari */
   height: 100%;
 }
 

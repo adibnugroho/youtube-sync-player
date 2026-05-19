@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { Plus, Link, Trash2, ListVideo, SkipForward, GripVertical, ArrowUp, ArrowDown, StepForward, Play } from 'lucide-react';
 
 const extractVideoID = (url) => {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  // Handle YouTube Shorts: youtube.com/shorts/VIDEO_ID
+  const shortsMatch = url.match(/youtube\.com\/shorts\/([^#&?/]{11})/);
+  if (shortsMatch) return shortsMatch[1];
+
+  // Handle standard formats: watch?v=, youtu.be/, embed/, v/
+  const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
 };

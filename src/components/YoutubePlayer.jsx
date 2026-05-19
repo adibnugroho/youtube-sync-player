@@ -34,16 +34,23 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
       const player = playerRef.current;
 
-      if (!currentVideo) {
-        // Hentikan video jika antrean kosong agar tidak ada suara hantu
+      // Gunakan videoId dari playerState jika tersedia — ini mencegah race condition
+      // antara queue listener dan playerState listener di Firebase.
+      // Ketika skip terjadi, playerState tiba lebih dulu dari update queue;
+      // dengan videoId di playerState, kita tidak perlu menunggu queue update.
+      const targetVideoId = 'videoId' in remotePlayerState
+        ? remotePlayerState.videoId          // eksplisit dari host (null = queue kosong)
+        : currentVideo?.videoId;             // fallback untuk state lama / pause / seek
+
+      if (!targetVideoId) {
+        // Tidak ada video target — hentikan pemutaran (queue kosong)
         const ps = player.getPlayerState();
         if (ps === 1 || ps === 3) player.pauseVideo();
         return;
       }
 
       const playerVideoId = player.getVideoData()?.video_id;
-      // FIX: Jika player belum punya video (undefined) atau ID berbeda, isDifferentVideo = true
-      const isDifferentVideo = currentVideo?.videoId && playerVideoId !== currentVideo.videoId;
+      const isDifferentVideo = playerVideoId !== targetVideoId;
 
       const currentTime = player.getCurrentTime() || 0;
       let expectedTime = remotePlayerState.time || 0;
@@ -56,30 +63,29 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
 
       if (isDifferentVideo) {
         if (remotePlayerState.state === 2) {
-          player.cueVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+          player.cueVideoById({ videoId: targetVideoId, startSeconds: expectedTime });
         } else {
-          player.loadVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+          player.loadVideoById({ videoId: targetVideoId, startSeconds: expectedTime });
         }
         return;
       }
 
-      // FIX #1: Jika client ini yang set state, skip HANYA jika sudah playing
-      // Sebelumnya: selalu skip jika updatedBy === localSessionId → host tidak auto-play video baru
+      // Jika client ini yang set state, skip sync HANYA jika sudah playing
       if (remotePlayerState.updatedBy === localSessionId) {
         try {
           const ps = player.getPlayerState();
-          if (ps === 1) return; // sudah playing, tidak perlu apa-apa
+          if (ps === 1) return;
         } catch (e) {
           return;
         }
       }
 
       if (remotePlayerState.state === 1) {
-        // FIX #2: Jika player di state "ended" (0), gunakan playVideo atau loadVideoById
         try {
           const ps = player.getPlayerState();
-          if (ps === 0 && currentVideo?.videoId) {
-            player.loadVideoById({ videoId: currentVideo.videoId, startSeconds: expectedTime });
+          if (ps === 0 && targetVideoId) {
+            // Player ended — muat ulang video target dari awal
+            player.loadVideoById({ videoId: targetVideoId, startSeconds: expectedTime });
             return;
           }
         } catch (e) {}
@@ -129,11 +135,9 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
   // Digantikan oleh handleReady + forceSync
 
   useEffect(() => {
-    if (currentVideo) {
-      forceSync();
-    }
+    forceSync();
     const handleVisibilityChange = () => {
-      if (!document.hidden && currentVideo) forceSync();
+      if (!document.hidden) forceSync();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -149,7 +153,7 @@ const YoutubePlayer = ({ currentVideo, onVideoEnd, remotePlayerState, onLocalSta
   const [initialVideoId] = useState(currentVideo?.videoId || '');
 
   return (
-    <div className="w-full h-full relative aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl group">
+    <div className="w-full max-h-full relative aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl group">
       
       {/* Placeholder Overlay (Tampil saat queue kosong) */}
       <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-yt-card border border-yt-border transition-opacity duration-300 ${!currentVideo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
